@@ -24,8 +24,11 @@ This project is currently in **pre-launch preview**. Everything except the on-ch
 - Server-side verifier (same code as the client)
 - Replay protection + per-epoch quotas
 - Live SSE feed, leaderboard, stats
+- Live `/api/launch-status` pulling deployer + Bankr Club status + ecosystem launch feed from the Bankr API
 
-Reward transfers are **mocked** (return `0xmock…` hashes) until the on-chain `$MINE` token deploys. The token deploys through Bankr's `POST /token-launches/deploy` endpoint the moment the deployer wallet activates [Bankr Club](https://bankr.bot/club). Watch the `network` badge in the stats panel — it flips from `pre-launch preview` to `bankr live` once `BANKR_API_KEY` + `MINE_TOKEN_ADDRESS` are wired in.
+Until `$MINE` is deployed on Base, every successful mint accrues into an **IOU queue** instead of triggering a fake transfer. There are no `0xmock…` tx hashes anywhere in the UI. The queue is the auditable source of truth for what every miner is owed, exposed at `/api/claim-queue?wallet=0x...`. When the deployer wallet activates [Bankr Club](https://bankr.bot/club) and `$MINE` deploys, `scripts/bankr-settle.mjs` drains the queue by calling `/wallet/transfer` per IOU and marks each as settled on the server via `/api/claim-queue/settle`. New mints from that point on settle inline.
+
+The protocol badge flips from `pre-launch preview` to `bankr live` the moment `MINE_TOKEN_ADDRESS` is wired into the server env.
 
 ## How it works
 
@@ -57,13 +60,18 @@ Browser (Next.js, TypeScript, Tailwind)
   └── /mine: Web Workers × N cores → @noble/hashes keccak256
                                     ↓ nonce
 Backend (Next.js Route Handlers)
-  ├── /api/challenge: deterministic per-wallet challenge
-  ├── /api/mine: verify PoW, dispatch reward, record mint
+  ├── /api/challenge:          deterministic per-wallet challenge
+  ├── /api/mine:               verify PoW, transfer or queue IOU
+  ├── /api/claim-queue:        per-wallet + global IOU view
+  ├── /api/claim-queue/settle: operator-only mark-settled
+  ├── /api/launch-status:      cached Bankr-side status + ecosystem feed
   ├── /api/stats, /api/leaderboard
   └── /api/feed (SSE)
             ↓
 Bankr API @ api.bankr.bot
-  ├── /wallet/transfer        (X-API-Key)  — every mint reward
+  ├── /wallet/me              (X-API-Key)  — polled by /api/launch-status
+  ├── /token-launches         (X-API-Key)  — polled by /api/launch-status
+  ├── /wallet/transfer        (X-API-Key)  — every mint reward, once $MINE is live
   └── /token-launches/deploy  (X-API-Key)  — one-time $MINE deploy
 ```
 
@@ -79,7 +87,7 @@ npm run dev
 # → http://localhost:3000
 ```
 
-No environment variables are required to run the preview — rewards mock out so the full UI flow is demoable.
+No environment variables are required to run the preview — rewards queue as IOUs so the full UI flow is demoable end-to-end.
 
 ## Path to a real launch
 
@@ -107,6 +115,13 @@ No environment variables are required to run the preview — rewards mock out so
    BANKR_TREASURY_WALLET=0x...   # optional: source wallet for transfers
    ```
 6. **Restart the server.** From this point every successful mint triggers a real `/wallet/transfer` and the badge flips to `bankr live`.
+7. **Settle the IOU backlog** accumulated during pre-launch:
+   ```bash
+   BANKR_API_KEY=bk_... MINE_TOKEN_ADDRESS=0x... \
+     node scripts/bankr-settle.mjs --server https://your-bankrmine.example --dry-run
+   # then drop --dry-run to actually broadcast
+   ```
+   The script reads `/api/claim-queue`, transfers each pending IOU via `/wallet/transfer`, and calls back to `/api/claim-queue/settle` so the server's view stays in sync with on-chain reality.
 
 ### Scripts
 
@@ -116,14 +131,15 @@ No environment variables are required to run the preview — rewards mock out so
 | `npm run build`  | Production build                                                      |
 | `npm run start`  | Production server                                                     |
 | `npm run lint`   | ESLint                                                                |
-| `node scripts/bankr-check.mjs` | Verify your `BANKR_API_KEY` + print wallet & portfolio  |
+| `node scripts/bankr-check.mjs`  | Verify your `BANKR_API_KEY` + print wallet & portfolio |
 | `node scripts/bankr-launch.mjs` | Deploy `$MINE` via Bankr Token Launch API              |
+| `node scripts/bankr-settle.mjs` | Drain the IOU queue once `$MINE` is live               |
 | `node scripts/test-mine.mjs`    | End-to-end mining smoke test against a running dev server |
 
 ## Phase roadmap
 
-- **Phase 1 — pre-launch preview (this branch)** — scaffold, browser miner, backend verifier, mocked Bankr transfers, landing page, live feed.
-- **Phase 2 — live launch** — wire `BANKR_API_KEY`, deploy `$MINE` via Bankr Token Launch API, switch transfers to real `/wallet/transfer`, tweet-to-mine flow.
+- **Phase 1 — pre-launch preview (live)** — scaffold, browser miner, backend verifier, IOU queue, landing page, live feed, real Bankr `/wallet/me` + `/token-launches` integration.
+- **Phase 2 — live launch** — activate Bankr Club, deploy `$MINE` via Token Launch API, settle the pre-launch IOU backlog, switch new mints to inline `/wallet/transfer`.
 - **Phase 3 — durable infra** — Postgres / Vercel KV state, daily Merkle root anchoring on Base, Telegram/Discord bots, "mining season" prediction markets via Bankr's Polymarket integration.
 
 ## Acknowledgements

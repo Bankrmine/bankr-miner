@@ -8,8 +8,9 @@ import {
 } from "@/lib/constants";
 import { bytesToHex } from "@/lib/hash";
 import { currentEpoch, deriveChallenge, verifySolution } from "@/lib/protocol";
-import { transferReward, bankrConfigured } from "@/lib/server/bankr";
+import { transferReward, bankrConfigured, tokenLaunched } from "@/lib/server/bankr";
 import { publish } from "@/lib/server/events";
+import { enqueueReward } from "@/lib/server/queue";
 import {
   canMint,
   noncePreviouslyUsed,
@@ -126,7 +127,10 @@ export async function POST(req: NextRequest) {
     hash: "0x" + bytesToHex(hash),
   });
 
-  // Dispatch the reward via Bankr (or fall through to mock tx).
+  // Dispatch the reward via Bankr when possible; never fabricate a fake
+  // on-chain tx hash. Either way, persist the reward as an IOU so the
+  // miner has a durable record that survives transient transfer
+  // failures (e.g. Bankr 5xx, gas issues, mis-configured allowlist).
   const transfer = await transferReward({
     to: wallet,
     amount: mint.reward,
@@ -134,6 +138,14 @@ export async function POST(req: NextRequest) {
   if (transfer.txHash) {
     mint.txHash = transfer.txHash;
   }
+  const iou = enqueueReward({
+    wallet,
+    mintIndex: mint.index,
+    amount: mint.reward,
+    era: mint.era,
+    pow: mint.hash,
+    settlementTxHash: transfer.txHash,
+  });
 
   publish({ type: "mint", mint });
 
@@ -142,7 +154,10 @@ export async function POST(req: NextRequest) {
     ok: true,
     mint,
     transfer,
+    queuedId: iou.id,
+    iouSettled: Boolean(iou.settlementTxHash),
     stats,
     bankrConfigured: bankrConfigured(),
+    tokenLaunched: tokenLaunched(),
   });
 }
