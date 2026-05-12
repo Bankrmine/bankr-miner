@@ -1,0 +1,73 @@
+/**
+ * BankrMine protocol parameters.
+ *
+ * Tokenomics modeled after hash256.org but tuned for a Bankr-native,
+ * off-chain-PoW + Bankr Wallet API distribution.
+ */
+
+export const TOKEN_NAME = "BankrMine";
+export const TOKEN_SYMBOL = "MINE";
+
+export const TOTAL_SUPPLY = 21_000_000;
+export const DEPLOYER_RESERVE_PCT = 0.05; // 5% locked to deployer
+export const LP_SEED_PCT = 0.05; // 5% via Bankr LP auto-seed
+export const MINING_PCT = 0.9; // 90% PoW mining
+
+export const MINING_SUPPLY = Math.floor(TOTAL_SUPPLY * MINING_PCT);
+
+/**
+ * Era schedule. Reward halves at each era boundary.
+ * Era 1 -> Era 2 -> ... until total mining supply is exhausted.
+ */
+export const ERA_1_REWARD = 100;
+export const HALVING_CADENCE_MINTS = 100_000;
+
+export function rewardForMintIndex(mintIndex: number): number {
+  // mintIndex is 0-based count of mints already finalised.
+  const era = Math.floor(mintIndex / HALVING_CADENCE_MINTS);
+  // Reward halves each era. Clamp to a minimum of 1 wei-MINE to avoid 0.
+  const reward = ERA_1_REWARD / Math.pow(2, era);
+  return reward < 0.0000001 ? 0 : reward;
+}
+
+export function eraForMintIndex(mintIndex: number): number {
+  return Math.floor(mintIndex / HALVING_CADENCE_MINTS) + 1;
+}
+
+/**
+ * Difficulty.
+ *
+ * We pick a target such that `keccak256(challenge ‖ nonce) < TARGET`.
+ * Smaller TARGET = harder.
+ *
+ * For Phase 1 demo we set leading zero bits low so a multi-core CPU
+ * finds a solution in a few seconds. Real launch will tune this and
+ * implement difficulty retargeting every RETARGET_INTERVAL mints.
+ */
+export const DIFFICULTY_LEADING_ZERO_BITS = 20; // ~2^20 hashes per solve
+export const RETARGET_INTERVAL_MINTS = 2016; // a la Bitcoin/hash256
+
+export const EPOCH_DURATION_MS = 10 * 60 * 1000; // 10 min per epoch
+export const MAX_MINTS_PER_EPOCH_PER_WALLET = 10; // anti-spam guard
+
+/**
+ * Optional small ETH tip per mint that routes to the deployer wallet to
+ * self-fund Base gas. Phase 1 demo runs with TIP_ETH=0 (free to mine).
+ */
+export const MINER_TIP_ETH = 0;
+
+/**
+ * Bankr wiring. Filled in via env vars in Phase 2.
+ *
+ *  - BANKR_API_KEY: from bankr.bot/api (starts with `bk_`)
+ *  - MINE_TOKEN_ADDRESS: Base address of the $MINE token after Bankr launch
+ *  - BANKR_TREASURY_WALLET: which Bankr-managed wallet to transfer from
+ */
+export const BANKR_API_BASE = "https://api.bankr.bot";
+
+/**
+ * Project identity baked into per-wallet challenges so a solution for one
+ * project can't be replayed against another.
+ */
+export const PROJECT_ID = "bankr-miner-v1";
+export const CHAIN_ID_BASE = 8453;
