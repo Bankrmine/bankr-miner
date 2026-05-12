@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { StatsPanel } from "@/components/StatsPanel";
 import { Leaderboard } from "@/components/Leaderboard";
+import { LaunchStatus } from "@/components/LaunchStatus";
 import {
   TOKEN_NAME,
   TOKEN_SYMBOL,
@@ -78,6 +79,10 @@ export default function Home() {
 
       <section className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-4">
         <StatsPanel />
+        <LaunchStatus />
+      </section>
+
+      <section className="mt-4">
         <Leaderboard />
       </section>
 
@@ -276,11 +281,15 @@ function FAQ() {
   const items = [
     {
       q: "Is the token live yet?",
-      a: `Not yet — this is a pre-launch preview. $${TOKEN_SYMBOL} will be deployed on Base via the Bankr Token Launch API the moment the deployer wallet activates Bankr Club. The verifier, miner, leaderboard and feed are all real today; only the on-chain transfer is mocked. The contract address is published the second the launch tx confirms.`,
+      a: `Not yet — this is a pre-launch preview. $${TOKEN_SYMBOL} will be deployed on Base via the Bankr Token Launch API the moment the deployer wallet activates Bankr Club. The verifier, miner, leaderboard and feed are all real today; every successful mint is recorded as an IOU in a queue you can inspect at /api/claim-queue, and the queue is batch-settled on Bankr the second the contract address is published. There are no fake "0xmock…" tx hashes anywhere in the UI.`,
+    },
+    {
+      q: "What's an IOU and how does it settle?",
+      a: `Every mint produces an IOU entry — a record of which wallet earned how much $${TOKEN_SYMBOL} at which era. Until the token is launched, IOUs accumulate server-side; once $${TOKEN_SYMBOL} deploys, the deployer runs a settlement pass that calls POST /wallet/transfer on Bankr for each entry. The data the script reads is the same data /api/claim-queue exposes, so you can verify your own IOU before settlement.`,
     },
     {
       q: "Why is the launch gated?",
-      a: `Token deploys through Bankr require Bankr Club membership (paid in $BNKR). The deployer is earning $BNKR through the Bankr Leaderboard to fund the membership organically — once activated, $${TOKEN_SYMBOL} ships immediately. Watch the network badge in the stats panel; it flips from 'pre-launch preview' to 'bankr live' on go-time.`,
+      a: `Token deploys through Bankr require Bankr Club membership (paid in $BNKR). The deployer is earning $BNKR through the Bankr Leaderboard to fund the membership organically — once activated, $${TOKEN_SYMBOL} ships immediately. The 'bankr status' card on this page polls /wallet/me upstream; the moment club flips to active, the protocol badge flips to 'bankr live'.`,
     },
     {
       q: "How is this different from hash256.org?",

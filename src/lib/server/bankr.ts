@@ -1,11 +1,15 @@
 /**
  * Thin Bankr Wallet API client.
  *
- * In Phase 1 (no API key configured) this returns a deterministic mock
- * "tx hash" so the rest of the system can run end-to-end during a demo.
- * In Phase 2 — once BANKR_API_KEY and MINE_TOKEN_ADDRESS are set — every
- * verified PoW solution triggers a real `POST /wallet/transfer` against
- * https://api.bankr.bot to dispatch the era reward.
+ * Three modes, picked from env:
+ *  1. neither BANKR_API_KEY nor MINE_TOKEN_ADDRESS set
+ *     → returns `{ ok: true, queued: true, reason: 'no-key' }`. Caller
+ *       writes the reward into the IOU queue. No fake tx hashes.
+ *  2. BANKR_API_KEY set but MINE_TOKEN_ADDRESS not yet (pre-launch)
+ *     → returns `{ ok: true, queued: true, reason: 'pre-launch' }`. Same.
+ *  3. Both set
+ *     → triggers a real `POST /wallet/transfer` and returns the real
+ *       on-chain `txHash` from Bankr.
  *
  * Wallet API reference:
  *   https://docs.bankr.bot/wallet-api/transfer/
@@ -23,9 +27,11 @@ import { BANKR_API_BASE, TOKEN_SYMBOL } from "../constants";
 
 export type TransferResult = {
   ok: boolean;
-  /** Bankr job id, or `mock_<...>` when unconfigured. */
-  jobId?: string;
-  /** Final on-chain tx hash, if known. */
+  /** True when the reward was added to the IOU queue instead of dispatched. */
+  queued?: boolean;
+  /** Why we queued, when `queued` is true. */
+  reason?: "no-key" | "pre-launch";
+  /** Final on-chain tx hash, set only on a real `/wallet/transfer`. */
   txHash?: string;
   error?: string;
 };
@@ -55,8 +61,11 @@ export async function transferReward(args: {
   const tokenAddress = process.env[TOKEN_ADDRESS_ENV];
   const treasury = process.env[TREASURY_ENV];
 
-  if (!apiKey || !tokenAddress) {
-    return mockTransfer(args);
+  if (!apiKey) {
+    return { ok: true, queued: true, reason: "no-key" };
+  }
+  if (!tokenAddress) {
+    return { ok: true, queued: true, reason: "pre-launch" };
   }
 
   const body = {
@@ -115,21 +124,6 @@ async function safeText(res: Response): Promise<string> {
   } catch {
     return "<unreadable>";
   }
-}
-
-function mockTransfer(args: {
-  to: string;
-  amount: number;
-}): TransferResult {
-  // Deterministic faux-tx so the UI has something to render in Phase 1
-  // without anyone interpreting it as a real transaction.
-  const seed = `${args.to}:${args.amount}:${Date.now()}`;
-  let h = 5381;
-  for (let i = 0; i < seed.length; i++) {
-    h = (h * 33) ^ seed.charCodeAt(i);
-  }
-  const mock = "0xmock" + Math.abs(h).toString(16).padStart(60, "0").slice(0, 60);
-  return { ok: true, jobId: `mock_${Math.abs(h).toString(36)}`, txHash: mock };
 }
 
 export const __config__ = {

@@ -56,9 +56,9 @@ export function StatsPanel({ pollMs = 3000 }: { pollMs?: number }) {
   return (
     <div className="terminal p-5 space-y-3">
       <div className="label-kbd flex items-center justify-between">
-        <span>network</span>
+        <span>protocol</span>
         <Badge
-          on={stats.bankrConfigured}
+          on={stats.tokenLaunched}
           onLabel="bankr live"
           offLabel="pre-launch preview"
         />
