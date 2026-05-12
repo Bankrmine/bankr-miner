@@ -1,26 +1,169 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f6f4ef;
+  --surface: #ffffff;
+  --surface-muted: #f3f1ec;
+  --foreground: #0a0a0a;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --accent: #7c3aed;
+  --accent-soft: #ede9fe;
+  --accent-strong: #6d28d9;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+html,
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background-image:
+    radial-gradient(circle at 0% 0%, rgba(124, 58, 237, 0.05), transparent 40%),
+    radial-gradient(circle at 100% 100%, rgba(124, 58, 237, 0.04), transparent 40%);
+  background-attachment: fixed;
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(124, 58, 237, 0.4);
+}
+a:hover {
+  text-decoration-color: var(--accent);
+}
+
+code,
+kbd,
+samp,
+pre,
+.font-mono {
+  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo,
+    Consolas, monospace;
+}
+
+.terminal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 1px 0 rgba(10, 10, 10, 0.02), 0 8px 24px -16px rgba(10, 10, 10, 0.12);
+}
+
+.terminal-bar {
+  background: linear-gradient(180deg, #f7f7f4 0%, #efefe9 100%);
+  border-bottom: 1px solid var(--border);
+  border-radius: 10px 10px 0 0;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.terminal-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #d1d5db;
+}
+.terminal-dot.red {
+  background: #ef4444;
+}
+.terminal-dot.yellow {
+  background: #f59e0b;
+}
+.terminal-dot.green {
+  background: #22c55e;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  padding: 0.625rem 1.25rem;
+  border-radius: 8px;
+  text-decoration: none;
+  transition:
+    background 120ms ease,
+    transform 80ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+  border: 1px solid transparent;
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn-primary {
+  background: #0a0a0a;
+  color: #ffffff;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+}
+.btn-primary:hover {
+  background: #1f1f1f;
+}
+.btn-accent {
+  background: var(--accent);
+  color: #ffffff;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+}
+.btn-accent:hover {
+  background: var(--accent-strong);
+}
+.btn-ghost {
+  background: var(--surface);
+  color: #0a0a0a;
+  border-color: var(--border);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+}
+.btn-ghost:hover {
+  border-color: #9ca3af;
+}
+.btn-danger {
+  background: #ef4444;
+  color: #ffffff;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+}
+.btn-danger:hover {
+  background: #dc2626;
+}
+
+.label-kbd {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.dots-bg {
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(10, 10, 10, 0.07) 1px, transparent 0);
+  background-size: 14px 14px;
 }
