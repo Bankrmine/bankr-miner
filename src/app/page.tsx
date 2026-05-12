@@ -19,8 +19,8 @@ export default function Home() {
       <section className="grid grid-cols-1 lg:grid-cols-5 gap-10 items-center">
         <div className="lg:col-span-3 space-y-6">
           <div className="label-kbd flex items-center gap-2">
-            <span className="inline-block w-2 h-2 rounded-full bg-[color:var(--accent)]" />
-            CPU-mined · Bankr-native · Base
+            <span className="inline-block w-2 h-2 rounded-full bg-[color:var(--accent)] animate-pulse" />
+            pre-launch preview · CPU-mined · Bankr-native · Base
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold leading-[1.05] tracking-tight">
             Mine{" "}
@@ -168,7 +168,7 @@ export default function Home() {
             ▶ Start mining
           </Link>
           <a
-            href="https://github.com/celciius/bankr-miner"
+            href="https://github.com/Bankrmine/bankr-miner"
             target="_blank"
             rel="noreferrer"
             className="btn btn-ghost"
@@ -275,8 +275,12 @@ function TokenomicsTable() {
 function FAQ() {
   const items = [
     {
-      q: "Where does the token live?",
-      a: `$${TOKEN_SYMBOL} is launched via Bankr on Base. The contract address is published the moment the launch tx confirms. Until then, mining runs in phase-1 mode with mocked transfers.`,
+      q: "Is the token live yet?",
+      a: `Not yet — this is a pre-launch preview. $${TOKEN_SYMBOL} will be deployed on Base via the Bankr Token Launch API the moment the deployer wallet activates Bankr Club. The verifier, miner, leaderboard and feed are all real today; only the on-chain transfer is mocked. The contract address is published the second the launch tx confirms.`,
+    },
+    {
+      q: "Why is the launch gated?",
+      a: `Token deploys through Bankr require Bankr Club membership (paid in $BNKR). The deployer is earning $BNKR through the Bankr Leaderboard to fund the membership organically — once activated, $${TOKEN_SYMBOL} ships immediately. Watch the network badge in the stats panel; it flips from 'pre-launch preview' to 'bankr live' on go-time.`,
     },
     {
       q: "How is this different from hash256.org?",

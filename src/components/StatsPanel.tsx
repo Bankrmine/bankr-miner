@@ -60,7 +60,7 @@ export function StatsPanel({ pollMs = 3000 }: { pollMs?: number }) {
         <Badge
           on={stats.bankrConfigured}
           onLabel="bankr live"
-          offLabel="phase-1 mock"
+          offLabel="pre-launch preview"
         />
       </div>
 
@@ -83,7 +83,8 @@ export function StatsPanel({ pollMs = 3000 }: { pollMs?: number }) {
       <Bar pct={eraPct} />
       <Row
         label="token launched"
-        value={stats.tokenLaunched ? "yes" : "phase-2 pending"}
+        value={stats.tokenLaunched ? "yes" : "waiting on bankr club"}
+        hint={stats.tokenLaunched ? undefined : "real $MINE deploys once club is active"}
       />
     </div>
   );

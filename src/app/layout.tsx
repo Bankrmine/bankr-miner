@@ -115,7 +115,7 @@ export default function RootLayout({
                 hash256.org
               </a>
             </span>
-            <span>phase 1 demo — not financial advice</span>
+            <span>pre-launch preview — not financial advice</span>
           </div>
         </footer>
       </body>
