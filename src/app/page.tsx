@@ -256,7 +256,7 @@ function TokenomicsTable() {
     [
       "halving cadence",
       `every ${FMT.format(HALVING_CADENCE_MINTS)} mints`,
-      "à la hash256.org",
+      "reward halves on every cadence",
     ],
     [
       "claim threshold",
@@ -297,10 +297,6 @@ function FAQ() {
     {
       q: `Why ${MIN_CLAIM_AMOUNT} $${TOKEN_SYMBOL} minimum claim?`,
       a: `Gas. A claim() tx costs the same gas whether you mint 1 ${"$" + TOKEN_SYMBOL} or 10,000. Setting a floor keeps gas-per-${"$" + TOKEN_SYMBOL} reasonable and produces clean on-chain history. Below the threshold, IOUs keep accruing — nothing is lost.`,
-    },
-    {
-      q: "How is this different from hash256.org?",
-      a: "hash256.org runs the whole protocol on Ethereum mainnet: the contract is the verifier. BankrMine verifies in an open-source backend, then mints on-chain through a signed claim. That trades a tiny amount of decentralisation for cheap Base gas, no per-mint user gas, and instant UI feedback.",
     },
     {
       q: "Can I run a headless / GPU miner?",

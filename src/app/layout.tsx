@@ -73,7 +73,7 @@ export default function RootLayout({
                   className="rounded-md"
                   style={{ imageRendering: "pixelated" }}
                 />
-                <span className="font-semibold tracking-tight">bankr-miner</span>
+                <span className="font-semibold tracking-tight">bankr-mine</span>
               </Link>
               <nav className="flex items-center gap-1 sm:gap-3 text-sm">
                 <Link
@@ -109,10 +109,6 @@ export default function RootLayout({
                 deployed on{" "}
                 <a href="https://base.org" target="_blank" rel="noreferrer">
                   Base
-                </a>{" "}
-                · mining math inspired by{" "}
-                <a href="https://hash256.org" target="_blank" rel="noreferrer">
-                  hash256.org
                 </a>
               </span>
               <span>mint-on-claim — not financial advice</span>
