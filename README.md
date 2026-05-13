@@ -8,6 +8,8 @@
 
 **▶ Live preview:** https://bankr-miner.vercel.app — connect a Base wallet, your browser starts mining `$MINE` in seconds. Solutions accrue as IOUs; once you cross **100 $MINE**, click **Claim** to mint on-chain.
 
+**Mainnet contract:** [`0x953fd216902e6e43AF3d518a2767d7817FCe0490`](https://basescan.org/token/0x953fd216902e6e43AF3d518a2767d7817FCe0490) (Base, deployed 2025-05-13).
+
 This repo is the reference frontend + backend + smart contract for **`$MINE`**, with mining math inspired by [hash256.org](https://hash256.org) but tuned for Base:
 
 | hash256.org                                  | BankrMine                                                  |
