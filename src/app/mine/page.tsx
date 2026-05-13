@@ -1,6 +1,7 @@
 import { Miner } from "@/components/Miner";
 import { StatsPanel } from "@/components/StatsPanel";
 import { LiveFeed } from "@/components/LiveFeed";
+import { LaunchStatus } from "@/components/LaunchStatus";
 import { TOKEN_SYMBOL } from "@/lib/constants";
 
 export const metadata = {
@@ -30,6 +31,7 @@ export default function MinePage() {
         </div>
         <div className="space-y-4">
           <StatsPanel />
+          <LaunchStatus />
           <LiveFeed limit={10} />
         </div>
       </div>

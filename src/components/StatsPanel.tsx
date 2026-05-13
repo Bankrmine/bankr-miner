@@ -56,11 +56,11 @@ export function StatsPanel({ pollMs = 3000 }: { pollMs?: number }) {
   return (
     <div className="terminal p-5 space-y-3">
       <div className="label-kbd flex items-center justify-between">
-        <span>network</span>
+        <span>protocol</span>
         <Badge
-          on={stats.bankrConfigured}
+          on={stats.tokenLaunched}
           onLabel="bankr live"
-          offLabel="phase-1 mock"
+          offLabel="pre-launch preview"
         />
       </div>
 
@@ -83,7 +83,8 @@ export function StatsPanel({ pollMs = 3000 }: { pollMs?: number }) {
       <Bar pct={eraPct} />
       <Row
         label="token launched"
-        value={stats.tokenLaunched ? "yes" : "phase-2 pending"}
+        value={stats.tokenLaunched ? "yes" : "waiting on bankr club"}
+        hint={stats.tokenLaunched ? undefined : "real $MINE deploys once club is active"}
       />
     </div>
   );

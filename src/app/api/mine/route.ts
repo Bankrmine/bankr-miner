@@ -8,8 +8,9 @@ import {
 } from "@/lib/constants";
 import { bytesToHex } from "@/lib/hash";
 import { currentEpoch, deriveChallenge, verifySolution } from "@/lib/protocol";
-import { transferReward, bankrConfigured } from "@/lib/server/bankr";
+import { transferReward, bankrConfigured, tokenLaunched } from "@/lib/server/bankr";
 import { publish } from "@/lib/server/events";
+import { enqueueReward } from "@/lib/server/queue";
 import {
   canMint,
   noncePreviouslyUsed,
@@ -89,14 +90,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (noncePreviouslyUsed(wallet, epoch, nonceParam)) {
+  if (await noncePreviouslyUsed(wallet, epoch, nonceParam)) {
     return Response.json(
       { error: "nonce already claimed" },
       { status: 409 },
     );
   }
 
-  const quota = canMint(epoch, wallet);
+  const quota = await canMint(epoch, wallet);
   if (!quota.ok) {
     return Response.json({ error: quota.reason }, { status: 429 });
   }
@@ -119,14 +120,23 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const mint = recordMint({
-    wallet,
-    epoch,
-    nonce: nonceParam,
-    hash: "0x" + bytesToHex(hash),
-  });
+  let mint;
+  try {
+    mint = await recordMint({
+      wallet,
+      epoch,
+      nonce: nonceParam,
+      hash: "0x" + bytesToHex(hash),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "mint rejected";
+    return Response.json({ error: message }, { status: 409 });
+  }
 
-  // Dispatch the reward via Bankr (or fall through to mock tx).
+  // Dispatch the reward via Bankr when possible; never fabricate a fake
+  // on-chain tx hash. Either way, persist the reward as an IOU so the
+  // miner has a durable record that survives transient transfer
+  // failures (e.g. Bankr 5xx, gas issues, mis-configured allowlist).
   const transfer = await transferReward({
     to: wallet,
     amount: mint.reward,
@@ -134,15 +144,26 @@ export async function POST(req: NextRequest) {
   if (transfer.txHash) {
     mint.txHash = transfer.txHash;
   }
+  const iou = await enqueueReward({
+    wallet,
+    mintIndex: mint.index,
+    amount: mint.reward,
+    era: mint.era,
+    pow: mint.hash,
+    settlementTxHash: transfer.txHash,
+  });
 
   publish({ type: "mint", mint });
 
-  const stats = getStats();
+  const stats = await getStats();
   return Response.json({
     ok: true,
     mint,
     transfer,
+    queuedId: iou.id,
+    iouSettled: Boolean(iou.settlementTxHash),
     stats,
     bankrConfigured: bankrConfigured(),
+    tokenLaunched: tokenLaunched(),
   });
 }
