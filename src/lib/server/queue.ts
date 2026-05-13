@@ -1,16 +1,4 @@
-/**
- * Queued-reward ledger.
- *
- * Until $MINE deploys on Base via Bankr, the verifier cannot dispatch a
- * real `/wallet/transfer`. Rather than fabricate a fake "0xmock…" tx
- * hash (which would lie to miners about a real on-chain credit), every
- * mint accrues into an in-memory IOU here. When the deployer wallet
- * activates Bankr Club and $MINE is launched, the same ledger is the
- * source of truth for batch-settling the queue via Bankr Wallet API.
- *
- * Phase 3 will swap the in-memory map for Postgres / Vercel KV; the
- * shape of the data does not change.
- */
+import { decodeStored, getRedis } from "./redis";
 
 export type QueuedReward = {
   /** Lowercase address that earned the IOU. */
@@ -55,6 +43,16 @@ type Store = {
 };
 
 const KEY = "__bankr_miner_queue__";
+const REDIS_PREFIX = "bankr-miner:v1:queue";
+
+const keys = {
+  allIds: `${REDIS_PREFIX}:all-ids`,
+  wallets: `${REDIS_PREFIX}:wallets`,
+  summary: `${REDIS_PREFIX}:summary`,
+  byId: (id: string) => `${REDIS_PREFIX}:iou:${id}`,
+  walletRewards: (wallet: string) => `${REDIS_PREFIX}:wallet:${wallet}:rewards`,
+  walletSummary: (wallet: string) => `${REDIS_PREFIX}:wallet:${wallet}:summary`,
+};
 
 function load(): Store {
   const g = globalThis as unknown as Record<string, unknown>;
@@ -75,7 +73,7 @@ function makeId(wallet: string, mintIndex: number): string {
   return `q_${mintIndex}_${wallet.slice(2, 8)}`;
 }
 
-export function enqueueReward(args: {
+export async function enqueueReward(args: {
   wallet: string;
   mintIndex: number;
   amount: number;
@@ -83,7 +81,65 @@ export function enqueueReward(args: {
   pow: string;
   /** Optional inline settlement (when the mint also dispatched a real transfer). */
   settlementTxHash?: string;
-}): QueuedReward {
+}): Promise<QueuedReward> {
+  const redis = getRedis();
+  if (redis) {
+    const id = makeId(args.wallet, args.mintIndex);
+    const existing = await redis.get<unknown>(keys.byId(id));
+    const parsed = decodeStored<QueuedReward>(existing);
+    if (parsed) return parsed;
+
+    const now = Date.now();
+    const reward: QueuedReward = {
+      wallet: args.wallet,
+      mintIndex: args.mintIndex,
+      amount: args.amount,
+      era: args.era,
+      pow: args.pow,
+      queuedAt: now,
+      id,
+      settlementTxHash: args.settlementTxHash,
+      settlementAt: args.settlementTxHash ? now : undefined,
+    };
+    const summary = keys.walletSummary(args.wallet);
+    const pendingAmount = args.settlementTxHash ? 0 : args.amount;
+    const pendingCount = args.settlementTxHash ? 0 : 1;
+
+    await redis
+      .pipeline()
+      .set(keys.byId(id), reward, { nx: true })
+      .rpush(keys.allIds, id)
+      .rpush(keys.walletRewards(args.wallet), id)
+      .sadd(keys.wallets, args.wallet)
+      .hincrbyfloat(keys.summary, "totalQueued", args.amount)
+      .hincrbyfloat(
+        keys.summary,
+        "totalSettled",
+        args.settlementTxHash ? args.amount : 0,
+      )
+      .hincrbyfloat(keys.summary, "totalPending", pendingAmount)
+      .hincrby(keys.summary, "totalIOUs", 1)
+      .hincrby(keys.summary, "iousSettled", args.settlementTxHash ? 1 : 0)
+      .hincrby(keys.summary, "iousPending", pendingCount)
+      .hset(keys.summary, { newestQueuedAt: now })
+      .hsetnx(keys.summary, "oldestQueuedAt", now.toString())
+      .hincrbyfloat(summary, "totalQueued", args.amount)
+      .hincrbyfloat(
+        summary,
+        "totalSettled",
+        args.settlementTxHash ? args.amount : 0,
+      )
+      .hincrbyfloat(summary, "totalPending", pendingAmount)
+      .hincrby(summary, "count", 1)
+      .hincrby(summary, "countSettled", args.settlementTxHash ? 1 : 0)
+      .hincrby(summary, "countPending", pendingCount)
+      .hset(summary, { lastQueuedAt: now })
+      .hsetnx(summary, "firstQueuedAt", now.toString())
+      .exec();
+
+    return reward;
+  }
+
   const store = load();
   const now = Date.now();
   const reward: QueuedReward = {
@@ -119,7 +175,7 @@ export function enqueueReward(args: {
   return reward;
 }
 
-export function getQueueForWallet(wallet: string): {
+export async function getQueueForWallet(wallet: string): Promise<{
   wallet: string;
   totalQueued: number;
   totalPending: number;
@@ -130,7 +186,59 @@ export function getQueueForWallet(wallet: string): {
   rewards: QueuedReward[];
   firstQueuedAt: number | null;
   lastQueuedAt: number | null;
-} {
+}> {
+  const redis = getRedis();
+  if (redis) {
+    const summary = await redis.hgetall<Record<string, string | number>>(
+      keys.walletSummary(wallet),
+    );
+    if (!summary) {
+      return {
+        wallet,
+        totalQueued: 0,
+        totalPending: 0,
+        totalSettled: 0,
+        count: 0,
+        countSettled: 0,
+        countPending: 0,
+        rewards: [],
+        firstQueuedAt: null,
+        lastQueuedAt: null,
+      };
+    }
+    const ids = await redis.lrange<string>(
+      keys.walletRewards(wallet),
+      0,
+      -1,
+    );
+    const rewards = (
+      await Promise.all(
+        ids.map(async (id) =>
+          decodeStored<QueuedReward>(await redis.get(keys.byId(id))),
+        ),
+      )
+    ).filter((reward): reward is QueuedReward => reward !== null);
+
+    return {
+      wallet,
+      totalQueued: Number(summary.totalQueued ?? 0),
+      totalPending: Number(summary.totalPending ?? 0),
+      totalSettled: Number(summary.totalSettled ?? 0),
+      count: Number(summary.count ?? 0),
+      countSettled: Number(summary.countSettled ?? 0),
+      countPending: Number(summary.countPending ?? 0),
+      rewards: rewards.reverse(),
+      firstQueuedAt:
+        summary.firstQueuedAt === undefined
+          ? null
+          : Number(summary.firstQueuedAt),
+      lastQueuedAt:
+        summary.lastQueuedAt === undefined
+          ? null
+          : Number(summary.lastQueuedAt),
+    };
+  }
+
   const bucket = load().byWallet.get(wallet);
   if (!bucket) {
     return {
@@ -160,7 +268,7 @@ export function getQueueForWallet(wallet: string): {
   };
 }
 
-export function getQueueSummary(): {
+export async function getQueueSummary(): Promise<{
   totalQueued: number;
   totalSettled: number;
   totalPending: number;
@@ -172,7 +280,35 @@ export function getQueueSummary(): {
   newestQueuedAt: number | null;
   settled: boolean;
   settledAt: number | null;
-} {
+}> {
+  const redis = getRedis();
+  if (redis) {
+    const [summary, uniqueMiners] = await Promise.all([
+      redis.hgetall<Record<string, string | number>>(keys.summary),
+      redis.exec<number>(["SCARD", keys.wallets]),
+    ]);
+    return {
+      totalQueued: Number(summary?.totalQueued ?? 0),
+      totalSettled: Number(summary?.totalSettled ?? 0),
+      totalPending: Number(summary?.totalPending ?? 0),
+      totalIOUs: Number(summary?.totalIOUs ?? 0),
+      iousSettled: Number(summary?.iousSettled ?? 0),
+      iousPending: Number(summary?.iousPending ?? 0),
+      uniqueMiners,
+      oldestQueuedAt:
+        summary?.oldestQueuedAt === undefined
+          ? null
+          : Number(summary.oldestQueuedAt),
+      newestQueuedAt:
+        summary?.newestQueuedAt === undefined
+          ? null
+          : Number(summary.newestQueuedAt),
+      settled: summary?.settled === "true",
+      settledAt:
+        summary?.settledAt === undefined ? null : Number(summary.settledAt),
+    };
+  }
+
   const store = load();
   let oldest: number | null = null;
   let newest: number | null = null;
@@ -208,11 +344,37 @@ export function getQueueSummary(): {
  * script when it batch-transfers post-launch). Returns true if the IOU
  * was found and updated.
  */
-export function markIouSettled(
+export async function markIouSettled(
   wallet: string,
   mintIndex: number,
   txHash: string,
-): boolean {
+): Promise<boolean> {
+  const redis = getRedis();
+  if (redis) {
+    const id = makeId(wallet, mintIndex);
+    const current = decodeStored<QueuedReward>(await redis.get(keys.byId(id)));
+    if (!current || current.settlementTxHash) return false;
+
+    const settled: QueuedReward = {
+      ...current,
+      settlementTxHash: txHash,
+      settlementAt: Date.now(),
+    };
+    await redis
+      .pipeline()
+      .set(keys.byId(id), settled)
+      .hincrbyfloat(keys.summary, "totalSettled", current.amount)
+      .hincrbyfloat(keys.summary, "totalPending", -current.amount)
+      .hincrby(keys.summary, "iousSettled", 1)
+      .hincrby(keys.summary, "iousPending", -1)
+      .hincrbyfloat(keys.walletSummary(wallet), "totalSettled", current.amount)
+      .hincrbyfloat(keys.walletSummary(wallet), "totalPending", -current.amount)
+      .hincrby(keys.walletSummary(wallet), "countSettled", 1)
+      .hincrby(keys.walletSummary(wallet), "countPending", -1)
+      .exec();
+    return true;
+  }
+
   const store = load();
   const bucket = store.byWallet.get(wallet);
   if (!bucket) return false;
@@ -233,7 +395,16 @@ export function markIouSettled(
  * batch-transfers $MINE to all queued wallets via `/wallet/transfer`.
  * Phase 3 will record per-IOU tx hashes here.
  */
-export function markQueueSettled(): void {
+export async function markQueueSettled(): Promise<void> {
+  const redis = getRedis();
+  if (redis) {
+    await redis.hset(keys.summary, {
+      settled: "true",
+      settledAt: Date.now(),
+    });
+    return;
+  }
+
   const store = load();
   store.settled = true;
   store.settledAt = Date.now();

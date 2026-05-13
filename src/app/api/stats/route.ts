@@ -4,7 +4,7 @@ import { getStats } from "@/lib/server/state";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const stats = getStats();
+  const stats = await getStats();
   return Response.json({
     ...stats,
     bankrConfigured: bankrConfigured(),

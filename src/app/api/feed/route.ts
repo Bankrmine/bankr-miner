@@ -13,6 +13,7 @@ export const runtime = "nodejs";
  */
 export async function GET(_req: NextRequest) {
   const encoder = new TextEncoder();
+  const backfill = await getRecentMints(25);
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       const send = (data: unknown) => {
@@ -22,7 +23,6 @@ export async function GET(_req: NextRequest) {
       };
 
       // Backfill recent activity.
-      const backfill = getRecentMints(25);
       for (const mint of backfill.reverse()) {
         send({ type: "mint", mint });
       }

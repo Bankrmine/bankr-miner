@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const updated = markIouSettled(wallet, mintIndex, txHash);
+  const updated = await markIouSettled(wallet, mintIndex, txHash);
   if (!updated) {
     return Response.json(
       { error: "IOU not found or already settled" },

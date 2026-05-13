@@ -18,7 +18,7 @@ export const runtime = "nodejs";
  */
 export async function GET(req: NextRequest) {
   const walletParam = req.nextUrl.searchParams.get("wallet");
-  const summary = getQueueSummary();
+  const summary = await getQueueSummary();
 
   if (!walletParam) {
     return Response.json({
@@ -40,6 +40,6 @@ export async function GET(req: NextRequest) {
   return Response.json({
     summary,
     tokenLaunched: tokenLaunched(),
-    queue: getQueueForWallet(wallet),
+    queue: await getQueueForWallet(wallet),
   });
 }
