@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   useConnect,
   useConnection,
@@ -126,7 +127,14 @@ function ConnectModal({
   pending,
   error,
 }: ConnectModalProps) {
-  return (
+  // Render into document.body so an ancestor with `backdrop-filter`,
+  // `transform`, or `filter` (which establish a containing block for
+  // fixed-positioned descendants) cannot trap the overlay inside itself.
+  // SSR-safe: ConnectButton only sets modalOpen=true from a click handler,
+  // which can only fire after hydration, so document is always defined here.
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -209,6 +217,7 @@ function ConnectModal({
           previously mined $MINE. We never send transactions on your behalf.
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
