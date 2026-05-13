@@ -13,6 +13,10 @@ type Stats = {
   mintsThisEra: number;
   mintsUntilHalving: number;
   halvingCadence: number;
+  difficultyBits: number;
+  retargetIntervalMints: number;
+  mintsUntilRetarget: number;
+  targetMintIntervalMs: number;
   bankrConfigured: boolean;
   tokenLaunched: boolean;
 };
@@ -81,6 +85,11 @@ export function StatsPanel({ pollMs = 3000 }: { pollMs?: number }) {
         hint={`${FMT.format(stats.mintsUntilHalving)} until halving`}
       />
       <Bar pct={eraPct} />
+      <Row
+        label="difficulty"
+        value={`${stats.difficultyBits} bits`}
+        hint={`${FMT.format(stats.mintsUntilRetarget)} mints until retarget · ${(stats.targetMintIntervalMs / 1000).toFixed(0)}s target`}
+      />
       <Row
         label="token launched"
         value={stats.tokenLaunched ? "yes" : "waiting on bankr club"}
