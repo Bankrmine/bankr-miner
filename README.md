@@ -2,9 +2,12 @@
 
 > **Tweet, mine, mint.** The first CPU-mineable token whose entire distribution layer is built on [`@bankrbot`](https://bankr.bot). Browser does the work; Bankr does the transfer.
 
+[![live](https://img.shields.io/badge/live-bankr--miner.vercel.app-22c55e)](https://bankr-miner.vercel.app)
 [![phase](https://img.shields.io/badge/status-pre--launch%20preview-7c3aed)](#status)
 [![bankr](https://img.shields.io/badge/built%20on-bankr.bot-7c3aed)](https://bankr.bot)
 [![chain](https://img.shields.io/badge/chain-Base-0052ff)](https://base.org)
+
+**▶ Live preview:** https://bankr-miner.vercel.app — paste any Base / EVM address, your browser starts mining `$MINE` in seconds. Rewards accrue as IOUs until `$MINE` deploys on Base.
 
 This repo is the reference frontend + backend for **`$MINE`**, a token whose mathematics are inspired by [hash256.org](https://hash256.org) but whose distribution layer is fully Bankr-native:
 
@@ -29,6 +32,8 @@ This project is currently in **pre-launch preview**. Everything except the on-ch
 Until `$MINE` is deployed on Base, every successful mint accrues into an **IOU queue** instead of triggering a fake transfer. There are no `0xmock…` tx hashes anywhere in the UI. The queue is the auditable source of truth for what every miner is owed, exposed at `/api/claim-queue?wallet=0x...`. When the deployer wallet activates [Bankr Club](https://bankr.bot/club) and `$MINE` deploys, `scripts/bankr-settle.mjs` drains the queue by calling `/wallet/transfer` per IOU and marks each as settled on the server via `/api/claim-queue/settle`. New mints from that point on settle inline.
 
 The protocol badge flips from `pre-launch preview` to `bankr live` the moment `MINE_TOKEN_ADDRESS` is wired into the server env.
+
+The live preview at [bankr-miner.vercel.app](https://bankr-miner.vercel.app) is exactly this — `BANKR_API_KEY` is set so the deployer status feed and ecosystem launches are real, but `MINE_TOKEN_ADDRESS` is intentionally unset so every successful mint goes to the IOU queue.
 
 ## How it works
 
