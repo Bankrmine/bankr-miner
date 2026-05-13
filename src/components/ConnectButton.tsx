@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import {
   useConnection,
   useDisconnect,
@@ -15,12 +15,22 @@ function shortAddr(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
+const subscribeNoop = () => () => {};
+function useHasMounted(): boolean {
+  // Tracks client-mount without scheduling a setState inside an effect, which
+  // upsets `react-hooks/set-state-in-effect`.
+  return useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false,
+  );
+}
+
 export function ConnectButton() {
   // AppKit registers its hooks only after `createAppKit()` runs, which is
   // a client-only effect inside `Providers`. During SSR/SSG we render a
   // placeholder so `useAppKit()` is never called on the server.
-  const [ready, setReady] = useState(false);
-  useEffect(() => setReady(true), []);
+  const ready = useHasMounted();
   if (!ready) {
     return (
       <button
