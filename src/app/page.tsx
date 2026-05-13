@@ -131,10 +131,6 @@ export default function Home() {
               p: "Every claim() is authorised by an EIP-191 signature from a dedicated backend wallet. The contract verifies it, mints, and marks the nonce used. Anti-replay is on-chain.",
             },
             {
-              h: "Fees to deployer wallet",
-              p: "LP and trading fees route to the deployer wallet by default — wired into the LP pair, not opaque off-chain royalties.",
-            },
-            {
               h: "Open-source verifier",
               p: "lib/protocol.ts runs on both client and server — independent re-verification of any nonce is one keccak256 away.",
             },
