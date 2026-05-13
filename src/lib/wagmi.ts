@@ -1,93 +1,86 @@
 /**
- * Wagmi v3 configuration. Single Base chain (mainnet by default;
- * Base Sepolia if NEXT_PUBLIC_MINE_CHAIN_ID is 84532). Connectors:
- *   - injected (MetaMask + any EIP-1193 wallet)
- *   - Coinbase Wallet smart wallet
- *   - WalletConnect (only if NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID is set)
+ * Wagmi config + Reown AppKit (Web3Modal v3) initialization.
  *
- * The config is built lazily on the client. We don't use SSR cookies for
- * the wallet state — the page renders an "unconnected" shell on the
- * server, then wagmi hydrates from localStorage on the client.
+ * The wagmi config is constructed via `WagmiAdapter` so AppKit and wagmi
+ * share the same connector/transport/storage layer. The actual modal
+ * (wallet picker, dark theme, "What is a Wallet?" panel) is wired up by
+ * `createAppKit()` — which we call from `initAppKit()` once, on the
+ * client only, after hydration.
+ *
+ * Public API kept stable for the rest of the app:
+ *   - TARGET_CHAIN
+ *   - getWagmiConfig()
+ *   - initAppKit()
+ *   - HAS_WALLETCONNECT_PROJECT_ID
  */
-import { http, createConfig, createStorage } from "wagmi";
+import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
+import { createAppKit } from "@reown/appkit/react";
 import { base, baseSepolia } from "wagmi/chains";
-import {
-  coinbaseWallet,
-  injected,
-  walletConnect,
-} from "wagmi/connectors";
+import type { Chain } from "wagmi/chains";
 
 import { TOKEN_NAME } from "./constants";
-
-let cachedConfig: ReturnType<typeof buildConfig> | null = null;
 
 const TARGET_CHAIN_ID = Number(
   process.env.NEXT_PUBLIC_MINE_CHAIN_ID ?? base.id,
 );
 
-export const TARGET_CHAIN =
+export const TARGET_CHAIN: Chain =
   TARGET_CHAIN_ID === baseSepolia.id ? baseSepolia : base;
 
-function buildConfig() {
-  const wcProjectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
+// AppKit refuses to render without a projectId. We still build the wagmi
+// config without one so the page renders during SSR/build; the Connect
+// button surfaces the missing-id case visually.
+const projectId =
+  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID?.trim() ?? "";
 
-  const connectors = [
-    injected({ shimDisconnect: true }),
-    coinbaseWallet({
-      appName: TOKEN_NAME,
-      preference: "all",
-    }),
-    ...(wcProjectId
-      ? [
-          walletConnect({
-            projectId: wcProjectId,
-            metadata: {
-              name: TOKEN_NAME,
-              description: "CPU-mined ERC-20 on Base",
-              url:
-                process.env.NEXT_PUBLIC_SITE_URL ??
-                "https://bankr-miner.app",
-              icons: ["/logo.png"],
-            },
-            showQrModal: true,
-          }),
-        ]
-      : []),
-  ];
+export const HAS_WALLETCONNECT_PROJECT_ID = projectId.length > 0;
 
-  // Narrow at the call site so wagmi infers a single-chain tuple,
-  // sidestepping the union-of-chains transport key problem.
-  if (TARGET_CHAIN.id === baseSepolia.id) {
-    return createConfig({
-      chains: [baseSepolia] as const,
-      connectors,
-      transports: { [baseSepolia.id]: http() },
-      storage: persistentStorage(),
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://bankr-miner.vercel.app";
+
+const networks = [TARGET_CHAIN] as const;
+
+let cachedAdapter: WagmiAdapter | null = null;
+let appKitInitialized = false;
+
+function getAdapter() {
+  if (!cachedAdapter) {
+    cachedAdapter = new WagmiAdapter({
+      networks: [...networks],
+      projectId: projectId || "00000000000000000000000000000000",
       ssr: true,
     });
   }
-  return createConfig({
-    chains: [base] as const,
-    connectors,
-    transports: { [base.id]: http() },
-    storage: persistentStorage(),
-    ssr: true,
-  });
-}
-
-function persistentStorage() {
-  return typeof window === "undefined"
-    ? createStorage({
-        storage: {
-          getItem: () => null,
-          setItem: () => {},
-          removeItem: () => {},
-        },
-      })
-    : createStorage({ storage: window.localStorage });
+  return cachedAdapter;
 }
 
 export function getWagmiConfig() {
-  if (!cachedConfig) cachedConfig = buildConfig();
-  return cachedConfig;
+  return getAdapter().wagmiConfig;
+}
+
+export function initAppKit() {
+  if (appKitInitialized) return;
+  if (typeof window === "undefined") return;
+  if (!HAS_WALLETCONNECT_PROJECT_ID) return;
+  appKitInitialized = true;
+  createAppKit({
+    adapters: [getAdapter()],
+    networks: [...networks],
+    projectId,
+    defaultNetwork: TARGET_CHAIN,
+    metadata: {
+      name: TOKEN_NAME,
+      description: "CPU-mined ERC-20 on Base",
+      url: siteUrl,
+      icons: [`${siteUrl}/logo.png`],
+    },
+    themeMode: "dark",
+    features: {
+      analytics: false,
+      email: false,
+      socials: false,
+      onramp: false,
+      swaps: false,
+    },
+  });
 }

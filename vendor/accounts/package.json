@@ -1,0 +1,10 @@
+{
+  "name": "accounts",
+  "version": "0.10.99",
+  "private": true,
+  "main": "./index.js",
+  "module": "./index.js",
+  "types": "./index.d.ts",
+  "license": "MIT",
+  "description": "Stub for optional wagmi tempo connector peer dep — never invoked at runtime."
+}
