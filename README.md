@@ -25,7 +25,8 @@ This project is currently in **pre-launch preview**. Everything except the on-ch
 - Browser PoW miner running keccak256 across all CPU cores
 - Per-wallet, per-epoch challenge generation
 - Server-side verifier (same code as the client)
-- Replay protection + per-epoch quotas
+- Replay protection + per-wallet/per-IP epoch quotas
+- Dynamic difficulty retargeting toward one successful mint per minute globally
 - Live SSE feed, leaderboard, stats
 - Live `/api/launch-status` pulling deployer + Bankr Club status + ecosystem launch feed from the Bankr API
 
@@ -43,7 +44,7 @@ The live preview at [bankr-miner.vercel.app](https://bankr-miner.vercel.app) is 
 4. The page POSTs `{wallet, nonce, epoch}` to `/api/mine`. The server recomputes the challenge and verifies the inequality independently.
 5. On success the server calls the Bankr Wallet API to transfer the era's reward to the miner's address. The `txHash` comes back through Bankr.
 
-Difficulty, era schedule, and per-epoch quotas live in [`src/lib/constants.ts`](./src/lib/constants.ts).
+Difficulty, era schedule, and per-epoch quotas live in [`src/lib/constants.ts`](./src/lib/constants.ts). The current pre-launch baseline is 24 leading-zero bits, retargeting every 2,016 mints toward one global mint per minute.
 
 ## Tokenomics (current defaults — easily tuneable)
 
