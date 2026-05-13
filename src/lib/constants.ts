@@ -1,25 +1,39 @@
 /**
  * BankrMine protocol parameters.
  *
- * Tokenomics modeled after hash256.org but tuned for a Bankr-native,
- * off-chain-PoW + Bankr Wallet API distribution.
+ * Tokenomics modeled after hash256.org. Distribution uses an on-chain
+ * mint-on-claim ERC-20 on Base — supply is 0 at deploy and grows only
+ * when miners cash in their off-chain PoW IOUs via claim().
  */
 
 export const TOKEN_NAME = "BankrMine";
 export const TOKEN_SYMBOL = "MINE";
 
-export const TOTAL_SUPPLY = 21_000_000;
-export const DEPLOYER_RESERVE_PCT = 0.05; // 5% locked to deployer
-export const LP_SEED_PCT = 0.05; // 5% via Bankr LP auto-seed
-export const MINING_PCT = 0.9; // 90% PoW mining
+export const TOTAL_SUPPLY = 100_000_000; // hard cap enforced on-chain
+export const DEPLOYER_RESERVE_PCT = 0.05; // 5% owner-minted, 30-day off-chain lock
+export const LP_SEED_PCT = 0.05; // 5% owner-minted to seed Uniswap/Aerodrome LP
+export const MINING_PCT = 0.9; // 90% PoW mining, minted lazily via claim()
 
 export const MINING_SUPPLY = Math.floor(TOTAL_SUPPLY * MINING_PCT);
+
+/**
+ * Minimum pending IOU balance (in whole MINE) before a miner can
+ * trigger an on-chain claim(). Keeps gas-per-MINE reasonable and
+ * concentrates txs for cleaner on-chain history.
+ */
+export const MIN_CLAIM_AMOUNT = 100;
+
+/**
+ * How long a backend-issued claim signature remains valid before the
+ * server lets the wallet re-issue (i.e. release the optimistic lock).
+ */
+export const CLAIM_SIGNATURE_TTL_MS = 30 * 60 * 1000;
 
 /**
  * Era schedule. Reward halves at each era boundary.
  * Era 1 -> Era 2 -> ... until total mining supply is exhausted.
  */
-export const ERA_1_REWARD = 100;
+export const ERA_1_REWARD = 500;
 export const HALVING_CADENCE_MINTS = 100_000;
 
 export function rewardForMintIndex(mintIndex: number): number {
@@ -57,11 +71,9 @@ export const MAX_MINTS_PER_EPOCH_PER_WALLET = 10; // anti-spam guard
 export const MINER_TIP_ETH = 0;
 
 /**
- * Bankr wiring. Filled in via env vars in Phase 2.
- *
- *  - BANKR_API_KEY: from bankr.bot/api (starts with `bk_`)
- *  - MINE_TOKEN_ADDRESS: Base address of the $MINE token after Bankr launch
- *  - BANKR_TREASURY_WALLET: which Bankr-managed wallet to transfer from
+ * Bankr wiring (optional). Used for the live token-launches feed shown on
+ * the landing page. Distribution itself no longer depends on Bankr — see
+ * contracts/MineToken.sol for the on-chain claim flow.
  */
 export const BANKR_API_BASE = "https://api.bankr.bot";
 
@@ -71,3 +83,8 @@ export const BANKR_API_BASE = "https://api.bankr.bot";
  */
 export const PROJECT_ID = "bankr-miner-v1";
 export const CHAIN_ID_BASE = 8453;
+
+/**
+ * Token decimals. ERC-20 fixed at 18 in MineToken.sol.
+ */
+export const TOKEN_DECIMALS = 18;
