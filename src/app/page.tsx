@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { StatsPanel } from "@/components/StatsPanel";
 import { Leaderboard } from "@/components/Leaderboard";
+import { LaunchStatus } from "@/components/LaunchStatus";
 import {
   TOKEN_NAME,
   TOKEN_SYMBOL,
@@ -19,8 +20,8 @@ export default function Home() {
       <section className="grid grid-cols-1 lg:grid-cols-5 gap-10 items-center">
         <div className="lg:col-span-3 space-y-6">
           <div className="label-kbd flex items-center gap-2">
-            <span className="inline-block w-2 h-2 rounded-full bg-[color:var(--accent)]" />
-            CPU-mined · Bankr-native · Base
+            <span className="inline-block w-2 h-2 rounded-full bg-[color:var(--accent)] animate-pulse" />
+            pre-launch preview · CPU-mined · Bankr-native · Base
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold leading-[1.05] tracking-tight">
             Mine{" "}
@@ -78,6 +79,10 @@ export default function Home() {
 
       <section className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-4">
         <StatsPanel />
+        <LaunchStatus />
+      </section>
+
+      <section className="mt-4">
         <Leaderboard />
       </section>
 
@@ -168,7 +173,7 @@ export default function Home() {
             ▶ Start mining
           </Link>
           <a
-            href="https://github.com/celciius/bankr-miner"
+            href="https://github.com/Bankrmine/bankr-miner"
             target="_blank"
             rel="noreferrer"
             className="btn btn-ghost"
@@ -275,8 +280,16 @@ function TokenomicsTable() {
 function FAQ() {
   const items = [
     {
-      q: "Where does the token live?",
-      a: `$${TOKEN_SYMBOL} is launched via Bankr on Base. The contract address is published the moment the launch tx confirms. Until then, mining runs in phase-1 mode with mocked transfers.`,
+      q: "Is the token live yet?",
+      a: `Not yet — this is a pre-launch preview. $${TOKEN_SYMBOL} will be deployed on Base via the Bankr Token Launch API the moment the deployer wallet activates Bankr Club. The verifier, miner, leaderboard and feed are all real today; every successful mint is recorded as an IOU in a queue you can inspect at /api/claim-queue, and the queue is batch-settled on Bankr the second the contract address is published. There are no fake "0xmock…" tx hashes anywhere in the UI.`,
+    },
+    {
+      q: "What's an IOU and how does it settle?",
+      a: `Every mint produces an IOU entry — a record of which wallet earned how much $${TOKEN_SYMBOL} at which era. Until the token is launched, IOUs accumulate server-side; once $${TOKEN_SYMBOL} deploys, the deployer runs a settlement pass that calls POST /wallet/transfer on Bankr for each entry. The data the script reads is the same data /api/claim-queue exposes, so you can verify your own IOU before settlement.`,
+    },
+    {
+      q: "Why is the launch gated?",
+      a: `Token deploys through Bankr require Bankr Club membership (paid in $BNKR). The deployer is earning $BNKR through the Bankr Leaderboard to fund the membership organically — once activated, $${TOKEN_SYMBOL} ships immediately. The 'bankr status' card on this page polls /wallet/me upstream; the moment club flips to active, the protocol badge flips to 'bankr live'.`,
     },
     {
       q: "How is this different from hash256.org?",

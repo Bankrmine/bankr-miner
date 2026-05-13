@@ -29,9 +29,18 @@ type MineResponse = {
     txHash?: string;
     hash: string;
   };
-  transfer: { ok: boolean; jobId?: string; txHash?: string; error?: string };
+  transfer: {
+    ok: boolean;
+    queued?: boolean;
+    reason?: "no-key" | "pre-launch";
+    txHash?: string;
+    error?: string;
+  };
+  queuedId?: string;
+  iouSettled?: boolean;
   stats: { mintCount: number; era: number; nextReward: number };
   bankrConfigured: boolean;
+  tokenLaunched: boolean;
 };
 
 type MiningStatus =
@@ -332,7 +341,16 @@ function StatusLine({
   }
   if (status.phase === "success") {
     const m = status.res.mint;
-    const tweetText = `Just mined ${m.reward} $${TOKEN_SYMBOL} on @bankrbot using my CPU.\n\nNo GPU. No ASIC. Browser-mined on @base.\n\nMine yours ↓`;
+    const isLive = status.res.tokenLaunched && Boolean(m.txHash);
+    const reason = status.res.transfer.reason;
+    const transferFailed =
+      status.res.tokenLaunched &&
+      status.res.transfer.ok === false &&
+      !m.txHash;
+
+    const tweetText = isLive
+      ? `Just mined ${m.reward} $${TOKEN_SYMBOL} on @bankrbot using my CPU.\n\nNo GPU. No ASIC. Browser-mined on @base.\n\nMine yours ↓`
+      : `Just mined ${m.reward} $${TOKEN_SYMBOL} IOU on @bankrbot — settles on chain when @BankrMine deploys.\n\nNo GPU. No ASIC. Browser-mined on @base.\n\nMine yours ↓`;
     const tweetUrl =
       typeof window !== "undefined"
         ? `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}&url=${encodeURIComponent(window.location.origin + "/mine")}`
@@ -343,13 +361,30 @@ function StatusLine({
           ✓ mint #{m.index} confirmed · +{m.reward} {TOKEN_SYMBOL} (era {m.era})
         </div>
         <div className="text-xs text-[color:var(--muted)]">
-          {status.res.bankrConfigured
-            ? "Transfer dispatched via Bankr Wallet API."
-            : "Phase-1 mock transfer (no Bankr API key configured yet). Real on-chain transfer wires in once BANKR_API_KEY is set."}
+          {isLive
+            ? "Real transfer dispatched via Bankr Wallet API."
+            : transferFailed
+              ? "Transfer failed upstream — IOU recorded, operator will retry."
+              : reason === "no-key"
+                ? "Recorded — server has no BANKR_API_KEY, IOU stored for settlement later."
+                : "Queued — settles on chain via Bankr Wallet API the moment $MINE deploys."}
         </div>
-        {status.res.mint.txHash && (
+        {isLive && status.res.mint.txHash && (
           <div className="text-xs text-[color:var(--muted)] break-all font-mono">
-            tx: {status.res.mint.txHash}
+            tx:{" "}
+            <a
+              href={`https://basescan.org/tx/${status.res.mint.txHash}`}
+              target="_blank"
+              rel="noreferrer"
+              className="underline"
+            >
+              {status.res.mint.txHash}
+            </a>
+          </div>
+        )}
+        {!isLive && status.res.queuedId && (
+          <div className="text-xs text-[color:var(--muted)] break-all font-mono">
+            IOU: {status.res.queuedId} · pow: {shortHash(m.hash)}
           </div>
         )}
         <div className="text-xs text-[color:var(--muted)] font-mono">

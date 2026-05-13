@@ -51,9 +51,14 @@ export function Leaderboard({ pollMs = 5000 }: { pollMs?: number }) {
               <span className="font-mono text-[color:var(--muted)] w-6 text-right">
                 {i + 1}.
               </span>
-              <span className="font-mono flex-1 truncate">
+              <a
+                href={`https://basescan.org/address/${r.wallet}`}
+                target="_blank"
+                rel="noreferrer"
+                className="font-mono flex-1 truncate hover:underline"
+              >
                 {shortAddr(r.wallet)}
-              </span>
+              </a>
               <span className="text-xs text-[color:var(--muted)] w-20 text-right">
                 {r.mintCount} mints
               </span>
