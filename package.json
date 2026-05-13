@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "compile:contracts": "node scripts/compile-contracts.mjs",
-    "deploy:mine-token": "node scripts/deploy-mine-token.mjs"
+    "deploy:mine-token": "node scripts/deploy-mine-token.mjs",
+    "reset:mining-state": "node scripts/reset-mining-state.mjs"
   },
   "dependencies": {
     "@noble/hashes": "^2.2.0",

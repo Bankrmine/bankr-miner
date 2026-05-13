@@ -46,6 +46,18 @@ export type PendingClaim = {
   wallet: string;
   amountWei: string; // bigint serialised as decimal string
   nonce: Hex;
+  /**
+   * EIP-191 signature blob over (claimer, amount, nonce, chainId, contract).
+   * Stored so that a frontend reload can resume submission without
+   * requesting a fresh signature (the old one would be locked out).
+   *
+   * Optional in the type to keep deserialization of legacy records
+   * (pre-signature-persist) from blowing up; legacy records are treated
+   * as expired in `getClaimableState`.
+   */
+  signature?: Hex;
+  /** Debugging aid: the digest that was signed. */
+  digest?: Hex;
   issuedAt: number;
   tokenAddress: string;
   chainId: number;
@@ -151,6 +163,17 @@ function isClaimLockExpired(claim: PendingClaim, now: number): boolean {
   return now - claim.issuedAt >= CLAIM_SIGNATURE_TTL_MS;
 }
 
+/**
+ * A pending lock is only honoured if it carries the signature that lets
+ * the frontend resume submission. Legacy locks predating signature-persist
+ * are treated as expired so users aren't stuck holding IOUs they can't mint.
+ */
+function isClaimLockUsable(claim: PendingClaim | null, now: number): claim is PendingClaim & { signature: Hex } {
+  if (!claim) return false;
+  if (!claim.signature) return false;
+  return !isClaimLockExpired(claim, now);
+}
+
 export type ClaimableState = {
   wallet: string;
   totalQueuedWei: bigint;
@@ -174,8 +197,8 @@ export async function getClaimableState(
   const totalClaimedWei = await getTotalClaimedWei(normalized);
   const pending = await getPendingClaim(normalized);
   const now = Date.now();
-  const lockedWei =
-    pending && !isClaimLockExpired(pending, now) ? BigInt(pending.amountWei) : 0n;
+  const usable = isClaimLockUsable(pending, now);
+  const lockedWei = usable ? BigInt(pending!.amountWei) : 0n;
 
   const reachable = totalQueuedWei > totalClaimedWei
     ? totalQueuedWei - totalClaimedWei
@@ -193,7 +216,7 @@ export async function getClaimableState(
     availableWei: availableWhole * denom,
     availableWhole,
     minClaim: MIN_CLAIM_AMOUNT,
-    pending,
+    pending: usable ? pending : null,
   };
 }
 
@@ -297,7 +320,9 @@ export async function signClaimForWallet(
   if (state.totalQueuedWei === 0n) {
     return { ok: false, reason: "no-balance", message: "no IOU balance to claim" };
   }
-  if (state.pending && !isClaimLockExpired(state.pending, Date.now())) {
+  if (state.pending) {
+    // state.pending is only returned by getClaimableState when the lock is
+    // valid (has a signature + not expired). Refuse to mint a second one.
     return {
       ok: false,
       reason: "already-pending",
@@ -336,6 +361,10 @@ export async function signClaimForWallet(
     wallet: args.wallet.toLowerCase(),
     amountWei: amountWei.toString(),
     nonce,
+    // Persist signature + digest so a frontend reload can resume the same
+    // submission without requesting a fresh (and disallowed) one.
+    signature,
+    digest,
     issuedAt: now,
     tokenAddress,
     chainId: CHAIN_ID_BASE,

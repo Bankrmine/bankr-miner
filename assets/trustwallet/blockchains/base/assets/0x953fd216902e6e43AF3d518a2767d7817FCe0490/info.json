@@ -1,0 +1,27 @@
+{
+  "name": "BankrMine",
+  "type": "BASE",
+  "symbol": "MINE",
+  "decimals": 18,
+  "website": "https://bankr-miner.vercel.app",
+  "description": "BankrMine ($MINE) is a fair-launch mint-on-claim ERC-20 on Base. Total supply starts at 0 and is minted lazily as miners redeem off-chain proof-of-work IOUs through a backend-signed claim(). Hard cap 100,000,000 MINE. 90% (90M) distributed via browser-based CPU keccak256 mining, 5% LP seed, 5% deployer reserve. Era 1 reward 500 MINE/mint, halving every 100,000 mints. Anti-replay nonces tracked on-chain.",
+  "explorer": "https://basescan.org/token/0x953fd216902e6e43AF3d518a2767d7817FCe0490",
+  "research": "",
+  "status": "active",
+  "id": "0x953fd216902e6e43AF3d518a2767d7817FCe0490",
+  "tags": [
+    "defi",
+    "memes"
+  ],
+  "links": [
+    {
+      "name": "github",
+      "url": "https://github.com/Bankrmine/bankr-miner"
+    },
+    {
+      "name": "twitter",
+      "url": "https://x.com/BankrMine"
+    }
+  ],
+  "source_code": "https://github.com/Bankrmine/bankr-miner"
+}
