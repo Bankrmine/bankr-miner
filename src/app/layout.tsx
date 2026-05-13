@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import Image from "next/image";
 import "./globals.css";
+import { Providers } from "@/components/Providers";
+import { ConnectButton } from "@/components/ConnectButton";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -55,69 +57,68 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <header className="border-b border-[color:var(--border)] bg-[color:var(--background)]/80 backdrop-blur sticky top-0 z-10">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
-            <Link
-              href="/"
-              className="no-underline flex items-center gap-2 text-sm font-mono"
-            >
-              <Image
-                src="/logo.png"
-                alt="BankrMine"
-                width={32}
-                height={32}
-                priority
-                className="rounded-md"
-                style={{ imageRendering: "pixelated" }}
-              />
-              <span className="font-semibold tracking-tight">bankr-miner</span>
-            </Link>
-            <nav className="flex items-center gap-1 sm:gap-3 text-sm">
+        <Providers>
+          <header className="border-b border-[color:var(--border)] bg-[color:var(--background)]/80 backdrop-blur sticky top-0 z-10">
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
               <Link
-                href="/mine"
-                className="no-underline px-2 py-1 rounded hover:bg-[color:var(--surface-muted)] text-[color:var(--foreground)]"
+                href="/"
+                className="no-underline flex items-center gap-2 text-sm font-mono"
               >
-                mine
+                <Image
+                  src="/logo.png"
+                  alt="BankrMine"
+                  width={32}
+                  height={32}
+                  priority
+                  className="rounded-md"
+                  style={{ imageRendering: "pixelated" }}
+                />
+                <span className="font-semibold tracking-tight">bankr-miner</span>
               </Link>
-              <Link
-                href="/feed"
-                className="no-underline px-2 py-1 rounded hover:bg-[color:var(--surface-muted)] text-[color:var(--foreground)]"
-              >
-                feed
-              </Link>
-              <a
-                href="https://docs.bankr.bot"
-                target="_blank"
-                rel="noreferrer"
-                className="hidden sm:inline no-underline px-2 py-1 rounded text-[color:var(--muted)] hover:text-[color:var(--foreground)]"
-              >
-                bankr docs ↗
-              </a>
-              <Link
-                href="/mine"
-                className="btn btn-accent ml-1 sm:ml-2"
-              >
-                Launch miner
-              </Link>
-            </nav>
-          </div>
-        </header>
-        <main className="flex-1">{children}</main>
-        <footer className="border-t border-[color:var(--border)] mt-12">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 text-[color:var(--muted)] font-mono text-xs flex flex-wrap items-center justify-between gap-2">
-            <span>
-              built on{" "}
-              <a href="https://bankr.bot" target="_blank" rel="noreferrer">
-                bankr.bot
-              </a>{" "}
-              · mining math inspired by{" "}
-              <a href="https://hash256.org" target="_blank" rel="noreferrer">
-                hash256.org
-              </a>
-            </span>
-            <span>pre-launch preview — not financial advice</span>
-          </div>
-        </footer>
+              <nav className="flex items-center gap-1 sm:gap-3 text-sm">
+                <Link
+                  href="/mine"
+                  className="no-underline px-2 py-1 rounded hover:bg-[color:var(--surface-muted)] text-[color:var(--foreground)]"
+                >
+                  mine
+                </Link>
+                <Link
+                  href="/feed"
+                  className="no-underline px-2 py-1 rounded hover:bg-[color:var(--surface-muted)] text-[color:var(--foreground)]"
+                >
+                  feed
+                </Link>
+                <a
+                  href="https://basescan.org"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hidden sm:inline no-underline px-2 py-1 rounded text-[color:var(--muted)] hover:text-[color:var(--foreground)]"
+                >
+                  base ↗
+                </a>
+                <div className="ml-1 sm:ml-2">
+                  <ConnectButton />
+                </div>
+              </nav>
+            </div>
+          </header>
+          <main className="flex-1">{children}</main>
+          <footer className="border-t border-[color:var(--border)] mt-12">
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 text-[color:var(--muted)] font-mono text-xs flex flex-wrap items-center justify-between gap-2">
+              <span>
+                deployed on{" "}
+                <a href="https://base.org" target="_blank" rel="noreferrer">
+                  Base
+                </a>{" "}
+                · mining math inspired by{" "}
+                <a href="https://hash256.org" target="_blank" rel="noreferrer">
+                  hash256.org
+                </a>
+              </span>
+              <span>mint-on-claim — not financial advice</span>
+            </div>
+          </footer>
+        </Providers>
       </body>
     </html>
   );
