@@ -111,7 +111,6 @@ export default function RootLayout({
                   Base
                 </a>
               </span>
-              <span>mint-on-claim — not financial advice</span>
             </div>
           </footer>
         </Providers>
