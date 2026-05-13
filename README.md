@@ -1,87 +1,75 @@
-# BankrMine — CPU-Mined, Bankr-Native Token
+# BankrMine — Mint-on-Claim, CPU-Mined ERC-20 on Base
 
-> **Tweet, mine, mint.** The first CPU-mineable token whose entire distribution layer is built on [`@bankrbot`](https://bankr.bot). Browser does the work; Bankr does the transfer.
+> **Mine in the browser. Mint on-chain.** A fair-launch ERC-20 whose total supply starts at 0 and only grows when miners cash in their proof-of-work IOUs through a backend-signed `claim()` on Base.
 
 [![live](https://img.shields.io/badge/live-bankr--miner.vercel.app-22c55e)](https://bankr-miner.vercel.app)
-[![phase](https://img.shields.io/badge/status-pre--launch%20preview-7c3aed)](#status)
-[![bankr](https://img.shields.io/badge/built%20on-bankr.bot-7c3aed)](https://bankr.bot)
 [![chain](https://img.shields.io/badge/chain-Base-0052ff)](https://base.org)
+[![model](https://img.shields.io/badge/model-mint--on--claim-7c3aed)](#how-it-works)
 
-**▶ Live preview:** https://bankr-miner.vercel.app — paste any Base / EVM address, your browser starts mining `$MINE` in seconds. Rewards accrue as IOUs until `$MINE` deploys on Base.
+**▶ Live preview:** https://bankr-miner.vercel.app — connect a Base wallet, your browser starts mining `$MINE` in seconds. Solutions accrue as IOUs; once you cross **100 $MINE**, click **Claim** to mint on-chain.
 
-This repo is the reference frontend + backend for **`$MINE`**, a token whose mathematics are inspired by [hash256.org](https://hash256.org) but whose distribution layer is fully Bankr-native:
+This repo is the reference frontend + backend + smart contract for **`$MINE`**, with mining math inspired by [hash256.org](https://hash256.org) but tuned for Base:
 
 | hash256.org                                  | BankrMine                                                  |
 | -------------------------------------------- | ---------------------------------------------------------- |
-| Custom Solidity contract on Ethereum mainnet | ERC-20 launched through Bankr on Base                      |
+| Custom Solidity contract on Ethereum mainnet | `MineToken.sol` ERC-20 on Base                             |
 | `mine(nonce)` on-chain verifier              | `/api/mine` off-chain verifier (open source, deterministic) |
-| Reward minted by contract                    | Reward dispatched via [Bankr Wallet API](https://docs.bankr.bot/wallet-api/transfer) |
-| Gas paid by miner                            | Gas paid by treasury (optional `MINER_TIP_ETH` to self-fund) |
-
-## Status
-
-This project is currently in **pre-launch preview**. Everything except the on-chain transfer is real:
-
-- Browser PoW miner running keccak256 across all CPU cores
-- Per-wallet, per-epoch challenge generation
-- Server-side verifier (same code as the client)
-- Replay protection + per-wallet/per-IP epoch quotas
-- Dynamic difficulty retargeting toward one successful mint per minute globally
-- Live SSE feed, leaderboard, stats
-- Live `/api/launch-status` pulling deployer + Bankr Club status + ecosystem launch feed from the Bankr API
-
-Until `$MINE` is deployed on Base, every successful mint accrues into an **IOU queue** instead of triggering a fake transfer. There are no `0xmock…` tx hashes anywhere in the UI. The queue is the auditable source of truth for what every miner is owed, exposed at `/api/claim-queue?wallet=0x...`. When the deployer wallet activates [Bankr Club](https://bankr.bot/club) and `$MINE` deploys, `scripts/bankr-settle.mjs` drains the queue by calling `/wallet/transfer` per IOU and marks each as settled on the server via `/api/claim-queue/settle`. New mints from that point on settle inline.
-
-The protocol badge flips from `pre-launch preview` to `bankr live` the moment `MINE_TOKEN_ADDRESS` is wired into the server env.
-
-The live preview at [bankr-miner.vercel.app](https://bankr-miner.vercel.app) is exactly this — `BANKR_API_KEY` is set so the deployer status feed and ecosystem launches are real, but `MINE_TOKEN_ADDRESS` is intentionally unset so every successful mint goes to the IOU queue.
+| Reward minted by contract per solve          | Reward batched as IOU, minted on `claim(amount, nonce, signature)` |
+| Gas paid by miner per solve                  | Gas paid by miner only on claim; mining itself is gasless  |
 
 ## How it works
 
-1. Open `/mine`, paste your Base / EVM wallet address. Nothing is signed.
-2. Browser fetches a per-(wallet, epoch) challenge: `challenge = keccak256(projectId ‖ chainId ‖ wallet ‖ epoch)`.
+1. Open `/mine`. Connect a Base wallet via the header button (MetaMask, Coinbase Wallet, WalletConnect).
+2. Browser fetches a per-`(wallet, epoch)` challenge: `challenge = keccak256(projectId ‖ chainId ‖ wallet ‖ epoch)`.
 3. `N` Web Workers (one per CPU core) brute-force a nonce until `keccak256(challenge ‖ uint64BE(nonce))` has the required leading zero bits.
-4. The page POSTs `{wallet, nonce, epoch}` to `/api/mine`. The server recomputes the challenge and verifies the inequality independently.
-5. On success the server calls the Bankr Wallet API to transfer the era's reward to the miner's address. The `txHash` comes back through Bankr.
+4. The page POSTs `{wallet, nonce, epoch}` to `/api/mine`. The server recomputes the challenge and verifies independently. On success the reward is recorded as an off-chain IOU.
+5. Once your IOU balance crosses **`MIN_CLAIM_AMOUNT` (100 $MINE by default)**, click **Claim**. The backend signs an EIP-191 permit; the page calls `MineToken.claim(amount, nonce, signature)` and the contract mints fresh `$MINE` directly to your wallet.
 
-Difficulty, era schedule, and per-epoch quotas live in [`src/lib/constants.ts`](./src/lib/constants.ts). The current pre-launch baseline is 24 leading-zero bits, retargeting every 2,016 mints toward one global mint per minute.
+The signed digest is `keccak256(abi.encodePacked(claimer, amount, nonce, chainId, contract))` wrapped in `"\x19Ethereum Signed Message:\n32"`. Anti-replay is on-chain via `mapping(bytes32 => bool) usedNonces`.
 
-## Tokenomics (current defaults — easily tuneable)
+Difficulty, era schedule, claim threshold, and per-epoch quotas live in [`src/lib/constants.ts`](./src/lib/constants.ts). The contract is at [`contracts/MineToken.sol`](./contracts/MineToken.sol). The current baseline is 24 leading-zero bits with dynamic retargeting every 2,016 mints toward one global mint per minute, and per-wallet + per-IP rate limits applied to `/api/mine`.
 
-| Bucket            | Share | Detail                                       |
-| ----------------- | ----- | -------------------------------------------- |
-| Mining (PoW)      | 90%   | 18,900,000 $MINE distributed via Bankr       |
-| LP seed           | 5%    | Auto-seeded by Bankr on launch               |
-| Deployer reserve  | 5%    | 30-day lock                                  |
-| Team / VC / airdrop | 0%  |                                              |
+## Tokenomics (defaults)
 
-- Total supply: **21,000,000 $MINE**
-- Era 1 reward: **100 $MINE / mint**
+| Bucket               | Share | Detail                                            |
+| -------------------- | ----- | ------------------------------------------------- |
+| Mining (PoW)         | 90%   | 90,000,000 $MINE minted lazily via `claim()`      |
+| LP seed              | 5%    | 5,000,000 $MINE — `ownerMint()` into LP pair      |
+| Deployer reserve     | 5%    | 5,000,000 $MINE — 30-day off-chain lock           |
+| Team / VC / airdrop  | 0%    |                                                   |
+
+- Max supply (hard cap, on-chain): **100,000,000 $MINE**
+- Era 1 reward: **500 $MINE / mint**
 - Halving: every **100,000 mints**
+- Minimum claim: **100 $MINE** (below this, IOUs keep accruing)
+- Network: **Base mainnet (chainId 8453)**
 
 ## Architecture
 
 ```
-Browser (Next.js, TypeScript, Tailwind)
+Browser (Next.js, TypeScript, Tailwind, wagmi v3)
+  ├── header /Connect wallet: injected + Coinbase Wallet + WalletConnect (Base only)
   └── /mine: Web Workers × N cores → @noble/hashes keccak256
                                     ↓ nonce
 Backend (Next.js Route Handlers)
   ├── /api/challenge:          deterministic per-wallet challenge
-  ├── /api/mine:               verify PoW, transfer or queue IOU
+  ├── /api/mine:               verify PoW, record IOU
   ├── /api/claim-queue:        per-wallet + global IOU view
-  ├── /api/claim-queue/settle: operator-only mark-settled
-  ├── /api/launch-status:      cached Bankr-side status + ecosystem feed
+  ├── /api/claim         GET:  available claim state for a wallet
+  ├── /api/claim         POST: sign EIP-191 permit for MineToken.claim()
+  ├── /api/claim/confirm POST: bump server-side `totalClaimed` after on-chain tx
   ├── /api/stats, /api/leaderboard
   └── /api/feed (SSE)
             ↓
-Bankr API @ api.bankr.bot
-  ├── /wallet/me              (X-API-Key)  — polled by /api/launch-status
-  ├── /token-launches         (X-API-Key)  — polled by /api/launch-status
-  ├── /wallet/transfer        (X-API-Key)  — every mint reward, once $MINE is live
-  └── /token-launches/deploy  (X-API-Key)  — one-time $MINE deploy
+Base mainnet
+  └── MineToken.sol
+        ├── claim(amount, nonce, signature)  — anyone, gated by claimSigner sig
+        ├── ownerMint(to, amount)            — owner, for LP / reserve
+        ├── setClaimSigner(addr)             — owner, key rotation
+        └── toggleClaimsPaused()             — owner, emergency stop
 ```
 
-Same `lib/protocol.ts` runs on both sides, so the verifier and the miner cannot drift.
+Same `lib/protocol.ts` runs on both client and server, so the verifier and miner cannot drift.
 
 ## Local dev
 
@@ -93,10 +81,9 @@ npm run dev
 # → http://localhost:3000
 ```
 
-No environment variables are required to run the preview — rewards queue as IOUs so the full UI flow is demoable end-to-end.
+No env vars are required to run the preview — mining works and IOUs accumulate in memory. To enable on-chain claims locally you need to set `MINE_TOKEN_ADDRESS` + `CLAIM_SIGNER_PRIVATE_KEY` (see `.env.example`).
 
-For production, configure durable Redis/KV storage so serverless cold starts and
-instance rotation do not clear mined blocks, leaderboard rows, or IOUs:
+For production, configure durable Redis/KV storage so serverless cold starts and instance rotation do not clear mined blocks, leaderboard rows, or IOUs:
 
 ```bash
 KV_REST_API_URL=https://...
@@ -106,66 +93,60 @@ UPSTASH_REDIS_REST_URL=https://...
 UPSTASH_REDIS_REST_TOKEN=...
 ```
 
-Without those variables, the app intentionally falls back to in-memory state for
-local demos only.
-
 ## Path to a real launch
 
-1. **Generate a Bankr API key** at https://bankr.bot/api. Enable: Wallet API, Agent API, Token Launch API. Disable "Read Only Mode".
-2. **Verify the key:**
+1. **Generate two wallets:**
+   - **Deployer / owner wallet** — pays gas for deploy. Holds admin powers (pause, signer rotation, ownerMint).
+   - **Claim signer wallet** — a separate hot wallet whose private key lives only on the backend, used to sign EIP-191 claim permits. Its public address is set on-chain via the `MineToken` constructor; rotate via `setClaimSigner()` if it ever leaks.
+
+2. **Compile + deploy:**
    ```bash
-   BANKR_API_KEY=bk_... node scripts/bankr-check.mjs
+   npm run compile:contracts     # runs solc, writes src/lib/contracts/MineToken.json
+   PRIVATE_KEY=0x... \
+   CLAIM_SIGNER_ADDRESS=0x... \
+   npm run deploy:mine-token
    ```
-   You should see your EVM wallet address and Base balance.
-3. **Subscribe to Bankr Club** at https://bankr.bot/club. Token deploys are gated on club membership (paid in $BNKR). The easiest no-cost route is to earn $BNKR through the Bankr Leaderboard airdrop campaign, then subscribe.
-4. **Deploy `$MINE`** via the Token Launch REST endpoint:
+   On success the script prints the address. Add `SIMULATE=1` for a dry-run.
+
+3. **Wire the env vars (Vercel or `.env.local`):**
    ```bash
-   BANKR_API_KEY=bk_... node scripts/bankr-launch.mjs \
-     --name "BankrMine" --symbol "MINE" \
-     --image https://raw.githubusercontent.com/Bankrmine/bankr-miner/main/public/logo.png \
-     --description "First CPU-mineable token on Bankr. No GPU. No ASIC." \
-     --website https://github.com/Bankrmine/bankr-miner
-   ```
-   On success the script prints `MINE_TOKEN_ADDRESS=0x…`. Use `--simulate` for a dry-run that doesn't broadcast.
-5. **Wire the address** into the server:
-   ```bash
-   # .env.local
-   BANKR_API_KEY=bk_xxx
    MINE_TOKEN_ADDRESS=0x...
-   BANKR_TREASURY_WALLET=0x...   # optional: source wallet for transfers
+   NEXT_PUBLIC_MINE_TOKEN_ADDRESS=0x...     # same address, frontend mirror
+   NEXT_PUBLIC_MINE_CHAIN_ID=8453            # Base mainnet
+   CLAIM_SIGNER_PRIVATE_KEY=0x...            # NOT your owner key
+   # optional
+   NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=...
    ```
-6. **Restart the server.** From this point every successful mint triggers a real `/wallet/transfer` and the badge flips to `bankr live`.
-7. **Settle the IOU backlog** accumulated during pre-launch:
-   ```bash
-   BANKR_API_KEY=bk_... MINE_TOKEN_ADDRESS=0x... \
-     node scripts/bankr-settle.mjs --server https://your-bankrmine.example --dry-run
-   # then drop --dry-run to actually broadcast
-   ```
-   The script reads `/api/claim-queue`, transfers each pending IOU via `/wallet/transfer`, and calls back to `/api/claim-queue/settle` so the server's view stays in sync with on-chain reality.
+
+4. **Seed the LP + reserve** (owner-only, runs once):
+   - Call `ownerMint(<lpPairAddress>, 5_000_000e18)` to seed a Uniswap/Aerodrome pair.
+   - Call `ownerMint(<deployerWallet>, 5_000_000e18)` to mint the deployer reserve (keep this locked off-chain for 30 days).
+
+5. **Done.** Miners can claim from the moment `MINE_TOKEN_ADDRESS` is set. The frontend hides the claim panel while it's unset.
 
 ### Scripts
 
-| Command          | What it does                                                          |
-| ---------------- | --------------------------------------------------------------------- |
-| `npm run dev`    | Next.js dev server                                                    |
-| `npm run build`  | Production build                                                      |
-| `npm run start`  | Production server                                                     |
-| `npm run lint`   | ESLint                                                                |
-| `node scripts/bankr-check.mjs`  | Verify your `BANKR_API_KEY` + print wallet & portfolio |
-| `node scripts/bankr-launch.mjs` | Deploy `$MINE` via Bankr Token Launch API              |
-| `node scripts/bankr-settle.mjs` | Drain the IOU queue once `$MINE` is live               |
-| `node scripts/test-mine.mjs`    | End-to-end mining smoke test against a running dev server |
+| Command                              | What it does                                                          |
+| ------------------------------------ | --------------------------------------------------------------------- |
+| `npm run dev`                        | Next.js dev server                                                    |
+| `npm run build`                      | Production build                                                      |
+| `npm run start`                      | Production server                                                     |
+| `npm run lint`                       | ESLint                                                                |
+| `npm run compile:contracts`          | Compile `contracts/MineToken.sol` → `src/lib/contracts/MineToken.json` |
+| `npm run deploy:mine-token`          | Deploy MineToken via viem. Requires `PRIVATE_KEY`, `CLAIM_SIGNER_ADDRESS` |
+| `node scripts/test-mine.mjs`         | End-to-end mining smoke test against a running dev server             |
 
-## Phase roadmap
+## Security notes
 
-- **Phase 1 — pre-launch preview (live)** — scaffold, browser miner, backend verifier, IOU queue, landing page, live feed, real Bankr `/wallet/me` + `/token-launches` integration.
-- **Phase 2 — live launch** — activate Bankr Club, deploy `$MINE` via Token Launch API, settle the pre-launch IOU backlog, switch new mints to inline `/wallet/transfer`.
-- **Phase 3 — durable infra** — Postgres / Vercel KV state, daily Merkle root anchoring on Base, Telegram/Discord bots, "mining season" prediction markets via Bankr's Polymarket integration.
+- `CLAIM_SIGNER_PRIVATE_KEY` is the most sensitive secret. Anyone holding it can mint up to `MAX_SUPPLY - totalSupply` `$MINE` to any address they control. Keep it on the backend only.
+- The IOU queue is the off-chain source of truth for "how much have you mined". A reset (e.g. losing Redis) means new claims will only credit IOUs accrued after the reset. The contract's `usedNonces` mapping still prevents double-spend of any previously-signed permit.
+- The contract has no upgradeability. Bugs are permanent. Audit before sending real liquidity.
+- `toggleClaimsPaused()` is the emergency stop. Use it the moment the signer key is suspected leaked, then `setClaimSigner(newAddress)` to rotate.
 
 ## Acknowledgements
 
-- [Bankr](https://bankr.bot) for the agent, wallet, and token launch primitives this project is built on.
 - [hash256.org](https://hash256.org) for the cleanest implementation of browser-mineable tokenomics.
+- [OpenZeppelin](https://www.openzeppelin.com/contracts) for the audited ERC-20 + ECDSA primitives used in `MineToken.sol`.
 
 ## License
 

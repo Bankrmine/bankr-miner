@@ -4,6 +4,7 @@ import { StatsPanel } from "@/components/StatsPanel";
 import { Leaderboard } from "@/components/Leaderboard";
 import { LaunchStatus } from "@/components/LaunchStatus";
 import {
+  MIN_CLAIM_AMOUNT,
   TOKEN_NAME,
   TOKEN_SYMBOL,
   TOTAL_SUPPLY,
@@ -21,7 +22,7 @@ export default function Home() {
         <div className="lg:col-span-3 space-y-6">
           <div className="label-kbd flex items-center gap-2">
             <span className="inline-block w-2 h-2 rounded-full bg-[color:var(--accent)] animate-pulse" />
-            pre-launch preview · CPU-mined · Bankr-native · Base
+            mint-on-claim · CPU-mined · Base mainnet
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold leading-[1.05] tracking-tight">
             Mine{" "}
@@ -31,13 +32,14 @@ export default function Home() {
             <span className="text-[color:var(--muted)]">No GPU. No ASIC.</span>
           </h1>
           <p className="text-lg text-[color:var(--muted)] max-w-xl leading-7">
-            {TOKEN_NAME} is a fair-launch token whose entire mining supply is
-            distributed through the{" "}
-            <a href="https://docs.bankr.bot" target="_blank" rel="noreferrer">
-              Bankr Wallet API
-            </a>{" "}
-            on Base. Your browser brute-forces a keccak256 challenge; the
-            server verifies and dispatches the reward.
+            {TOKEN_NAME} is a fair-launch ERC-20 on{" "}
+            <a href="https://base.org" target="_blank" rel="noreferrer">
+              Base
+            </a>
+            . Total supply starts at 0 — ${TOKEN_SYMBOL} is{" "}
+            <em>minted only when miners claim</em>, capped at{" "}
+            {FMT.format(TOTAL_SUPPLY)}. Connect a Base wallet, let your browser
+            grind keccak256, then mint on-chain in one click.
           </p>
           <div className="flex flex-wrap gap-3">
             <Link href="/mine" className="btn btn-accent">
@@ -47,12 +49,12 @@ export default function Home() {
               View live feed
             </Link>
             <a
-              href="https://bankr.bot/launches"
+              href="https://github.com/Bankrmine/bankr-miner"
               target="_blank"
               rel="noreferrer"
               className="btn btn-ghost"
             >
-              Bankr token feed ↗
+              View source ↗
             </a>
           </div>
         </div>
@@ -94,10 +96,10 @@ export default function Home() {
         <Steps
           items={[
             "Open /mine on any device. Phone, laptop, anything with a JavaScript runtime.",
-            "Paste your Base wallet address. Nothing is signed — the address is just where rewards land.",
+            "Connect a Base wallet. Nothing is signed yet — the address is just bound to your per-wallet challenge.",
             "The browser spins up one Web Worker per CPU core. Each worker brute-forces keccak256(challenge ‖ nonce) until it has enough leading zero bits.",
-            "Challenges are per-wallet, per-epoch (10 min). Nobody can steal your nonce from a public mempool — there is no public mempool.",
-            "On a hit, the page POSTs the nonce. The server verifies the proof of work, then dispatches the reward through the Bankr Wallet API.",
+            `Solutions accrue as off-chain IOUs at ${ERA_1_REWARD} $${TOKEN_SYMBOL} per solve. The server verifies every nonce; nobody can steal your solution from a mempool because there is no mempool.`,
+            `Once your IOU balance crosses ${MIN_CLAIM_AMOUNT} $${TOKEN_SYMBOL}, click "Claim". The backend signs a permit; you broadcast claim(amount, nonce, signature) to MineToken.sol, which mints the tokens straight to your wallet.`,
           ]}
         />
       </Section>
@@ -111,31 +113,31 @@ export default function Home() {
       </Section>
 
       <Section
-        eyebrow="why bankr"
-        title="What makes this Bankr-native"
-        description="Each piece below is a direct hook into Bankr — token launch, wallet transfers, fee routing, social discovery."
+        eyebrow="why this design"
+        title="What makes this fair"
+        description="Mint-on-claim with a hard supply cap. No premine, no presale, no insiders. Liquidity and fees route to the deployer wallet by construction."
       >
         <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
             {
-              h: "Launched via Bankr",
-              p: "$" + TOKEN_SYMBOL + " is deployed on Base through the Bankr Agent API, so it auto-lists on bankr.bot/launches with Uniswap V4 LP seeded automatically.",
+              h: "Supply = 0 at deploy",
+              p: `${TOKEN_NAME} starts at 0. ${"$" + TOKEN_SYMBOL} only comes into existence when a miner claim()s their accumulated PoW IOUs, capped at ${FMT.format(TOTAL_SUPPLY)}.`,
             },
             {
-              h: "Every mint = Bankr tx",
-              p: "Each rewarded miner triggers POST /wallet/transfer, putting Bankr-attributed volume on chain.",
+              h: "Backend-signed claims",
+              p: "Every claim() is authorised by an EIP-191 signature from a dedicated backend wallet. The contract verifies it, mints, and marks the nonce used. Anti-replay is on-chain.",
             },
             {
-              h: "Fees forever",
-              p: "Trading fees on every $" + TOKEN_SYMBOL + " swap accrue to the deployer wallet — 57% of every 1.2% swap fee, automatically.",
-            },
-            {
-              h: "Tweet-to-mine",
-              p: "After a solve, the UI offers a pre-filled X post tagging @bankrbot, so Bankr's social integration picks it up.",
+              h: "Fees to deployer wallet",
+              p: "LP and trading fees route to the deployer wallet by default — wired into the LP pair, not opaque off-chain royalties.",
             },
             {
               h: "Open-source verifier",
-              p: "lib/protocol.ts runs on both client and server — independent re-verification is one keccak256 away.",
+              p: "lib/protocol.ts runs on both client and server — independent re-verification of any nonce is one keccak256 away.",
+            },
+            {
+              h: "Rotatable signer + pause",
+              p: "setClaimSigner() and toggleClaimsPaused() let the owner rotate a leaked signer or freeze claims in an emergency without redeploying.",
             },
             {
               h: "No GPU / ASIC moat",
@@ -230,21 +232,21 @@ function Steps({ items }: { items: string[] }) {
 
 function TokenomicsTable() {
   const rows: [string, string, string][] = [
-    ["total supply", `${FMT.format(TOTAL_SUPPLY)} ${TOKEN_SYMBOL}`, ""],
+    ["max supply", `${FMT.format(TOTAL_SUPPLY)} ${TOKEN_SYMBOL}`, "hard cap enforced on-chain"],
     [
       "mining (PoW)",
       `${FMT.format(MINING_SUPPLY)} ${TOKEN_SYMBOL}`,
-      "90% — distributed via Bankr Wallet API",
+      "90% — minted lazily via claim()",
     ],
     [
       "LP seed",
       `${FMT.format(TOTAL_SUPPLY * 0.05)} ${TOKEN_SYMBOL}`,
-      "5% — auto-seeded by Bankr",
+      "5% — owner-minted into Uniswap/Aerodrome pair",
     ],
     [
       "deployer reserve",
       `${FMT.format(TOTAL_SUPPLY * 0.05)} ${TOKEN_SYMBOL}`,
-      "5% — 30-day lock",
+      "5% — 30-day off-chain lock",
     ],
     [
       "era 1 reward",
@@ -255,6 +257,11 @@ function TokenomicsTable() {
       "halving cadence",
       `every ${FMT.format(HALVING_CADENCE_MINTS)} mints`,
       "à la hash256.org",
+    ],
+    [
+      "claim threshold",
+      `${FMT.format(MIN_CLAIM_AMOUNT)} ${TOKEN_SYMBOL}`,
+      "minimum IOU balance to mint on-chain",
     ],
     ["team / vc / airdrop", "0", "—"],
   ];
@@ -281,19 +288,19 @@ function FAQ() {
   const items = [
     {
       q: "Is the token live yet?",
-      a: `Not yet — this is a pre-launch preview. $${TOKEN_SYMBOL} will be deployed on Base via the Bankr Token Launch API the moment the deployer wallet activates Bankr Club. The verifier, miner, leaderboard and feed are all real today; every successful mint is recorded as an IOU in a queue you can inspect at /api/claim-queue, and the queue is batch-settled on Bankr the second the contract address is published. There are no fake "0xmock…" tx hashes anywhere in the UI.`,
+      a: `Live as soon as the operator deploys MineToken.sol on Base and sets MINE_TOKEN_ADDRESS + CLAIM_SIGNER_PRIVATE_KEY in the env. Until then, mining still works and accumulates IOUs server-side — they become claimable on-chain the moment the contract address is wired in. There are no fake "0xmock…" tx hashes anywhere in the UI.`,
     },
     {
-      q: "What's an IOU and how does it settle?",
-      a: `Every mint produces an IOU entry — a record of which wallet earned how much $${TOKEN_SYMBOL} at which era. Until the token is launched, IOUs accumulate server-side; once $${TOKEN_SYMBOL} deploys, the deployer runs a settlement pass that calls POST /wallet/transfer on Bankr for each entry. The data the script reads is the same data /api/claim-queue exposes, so you can verify your own IOU before settlement.`,
+      q: "What's mint-on-claim?",
+      a: `Total supply starts at 0. ${"$" + TOKEN_SYMBOL} only exists once a miner calls claim() on MineToken.sol with a backend-signed permit. That means no premine, no foundation allocation, no team unlock — supply tracks real mining activity 1:1, capped at ${FMT.format(TOTAL_SUPPLY)} forever.`,
     },
     {
-      q: "Why is the launch gated?",
-      a: `Token deploys through Bankr require Bankr Club membership (paid in $BNKR). The deployer is earning $BNKR through the Bankr Leaderboard to fund the membership organically — once activated, $${TOKEN_SYMBOL} ships immediately. The 'bankr status' card on this page polls /wallet/me upstream; the moment club flips to active, the protocol badge flips to 'bankr live'.`,
+      q: `Why ${MIN_CLAIM_AMOUNT} $${TOKEN_SYMBOL} minimum claim?`,
+      a: `Gas. A claim() tx costs the same gas whether you mint 1 ${"$" + TOKEN_SYMBOL} or 10,000. Setting a floor keeps gas-per-${"$" + TOKEN_SYMBOL} reasonable and produces clean on-chain history. Below the threshold, IOUs keep accruing — nothing is lost.`,
     },
     {
       q: "How is this different from hash256.org?",
-      a: "hash256.org has a custom Solidity mining contract on Ethereum mainnet. BankrMine is Bankr-native: proof of work is verified in our open-source backend and rewards are dispatched as Bankr Wallet API transfers. That trades some decentralisation for full Bankr ecosystem integration (token feed, fee routing, social hooks).",
+      a: "hash256.org runs the whole protocol on Ethereum mainnet: the contract is the verifier. BankrMine verifies in an open-source backend, then mints on-chain through a signed claim. That trades a tiny amount of decentralisation for cheap Base gas, no per-mint user gas, and instant UI feedback.",
     },
     {
       q: "Can I run a headless / GPU miner?",
@@ -304,12 +311,12 @@ function FAQ() {
       a: "Per-wallet challenges, per-epoch nonce uniqueness, a per-epoch max mint cap, and a difficulty target that requires real CPU work. Phase 2 will add rate limiting and optional captchas.",
     },
     {
-      q: "Do I need a Bankr account to mine?",
-      a: "No. As a miner, you just need an EVM wallet address to receive the reward. The deployer (project operator) holds the Bankr account that funds and dispatches rewards.",
+      q: "What happens if the claim signer key leaks?",
+      a: "The contract owner calls setClaimSigner(newAddress) to rotate the authorising key. Old signatures still resolve to the old signer and stop verifying. Same exit if the backend goes offline: toggleClaimsPaused() freezes claim() until things are healthy.",
     },
     {
       q: "Is this audited?",
-      a: "No. Phase 1 is a transparent, open-source demo. Read the code in /src/lib before connecting real value.",
+      a: "No. Phase 1 is a transparent, open-source demo. Read contracts/MineToken.sol and the verifier in /src/lib before connecting real value.",
     },
   ];
   return (

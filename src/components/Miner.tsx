@@ -1,13 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { isValidAddress, toChecksumAddress } from "@/lib/address";
+import { useConnection } from "wagmi";
+import { toChecksumAddress } from "@/lib/address";
 import {
   startMiner,
   type MinerProgress,
   type MinerHandle,
 } from "@/lib/client/miner";
 import { TOKEN_SYMBOL } from "@/lib/constants";
+import { ConnectButton } from "./ConnectButton";
 
 type ChallengeResponse = {
   wallet: string;
@@ -67,7 +69,6 @@ function formatHashrate(hps: number): string {
 }
 
 export function Miner() {
-  const [addressInput, setAddressInput] = useState("");
   const [status, setStatus] = useState<MiningStatus>({ phase: "idle" });
   const [challenge, setChallenge] = useState<ChallengeResponse | null>(null);
   const [continuousMode, setContinuousMode] = useState(false);
@@ -75,11 +76,12 @@ export function Miner() {
   const handleRef = useRef<MinerHandle | null>(null);
   const stopFlagRef = useRef(false);
 
+  const connection = useConnection();
   const wallet = useMemo(() => {
-    return isValidAddress(addressInput)
-      ? addressInput.trim().toLowerCase()
+    return connection.isConnected && connection.address
+      ? connection.address.toLowerCase()
       : null;
-  }, [addressInput]);
+  }, [connection.address, connection.isConnected]);
 
   const checksum = wallet ? toChecksumAddress(wallet) : null;
 
@@ -201,40 +203,31 @@ export function Miner() {
           </div>
         </div>
 
-        <label
-          htmlFor="wallet-input"
-          className="block text-xs text-[color:var(--muted)]"
-        >
-          Your wallet address (Base / EVM)
-        </label>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <input
-            id="wallet-input"
-            value={addressInput}
-            onChange={(e) => setAddressInput(e.target.value)}
-            placeholder="0x…"
-            className="flex-1 bg-[color:var(--surface)] border border-[color:var(--border)] rounded-md px-3 py-2 text-sm font-mono text-[color:var(--foreground)] placeholder:text-[color:var(--muted)] focus:outline-none focus:border-[color:var(--accent)]"
-            disabled={isWorking}
-            spellCheck={false}
-          />
-          <button
-            type="button"
-            onClick={isWorking ? stop : start}
-            disabled={!wallet && !isWorking}
-            className={
-              "btn disabled:opacity-40 disabled:cursor-not-allowed " +
-              (isWorking ? "btn-danger" : "btn-accent")
-            }
-          >
-            {isWorking ? "■ Stop" : "▶ Start mining"}
-          </button>
-        </div>
-        {checksum && (
-          <div className="text-[11px] text-[color:var(--muted)] font-mono break-all">
-            checksum:{" "}
-            <span className="text-[color:var(--foreground)]">{checksum}</span>
+        <div className="flex flex-col gap-2">
+          <div className="block text-xs text-[color:var(--muted)]">
+            {wallet
+              ? "connected wallet (Base)"
+              : "connect a wallet to start mining — nothing is signed, the address just receives mined IOUs"}
           </div>
-        )}
+          {wallet ? (
+            <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+              <code className="flex-1 break-all bg-[color:var(--surface)] border border-[color:var(--border)] rounded-md px-3 py-2 text-xs font-mono text-[color:var(--foreground)]">
+                {checksum}
+              </code>
+              <button
+                type="button"
+                onClick={isWorking ? stop : start}
+                className={
+                  "btn " + (isWorking ? "btn-danger" : "btn-accent")
+                }
+              >
+                {isWorking ? "■ Stop" : "▶ Start mining"}
+              </button>
+            </div>
+          ) : (
+            <ConnectButton />
+          )}
+        </div>
         <label className="flex items-center gap-2 text-xs text-[color:var(--muted)] cursor-pointer select-none">
           <input
             type="checkbox"
@@ -292,7 +285,7 @@ function StatusLine({
   if (status.phase === "idle") {
     return (
       <div className="text-sm text-[color:var(--muted)] font-mono">
-        idle · {cores} cores detected · paste an address and click start.
+        idle · {cores} cores detected · connect your Base wallet and click start.
       </div>
     );
   }

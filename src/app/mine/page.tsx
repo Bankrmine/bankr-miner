@@ -1,8 +1,8 @@
 import { Miner } from "@/components/Miner";
 import { StatsPanel } from "@/components/StatsPanel";
 import { LiveFeed } from "@/components/LiveFeed";
-import { LaunchStatus } from "@/components/LaunchStatus";
-import { TOKEN_SYMBOL } from "@/lib/constants";
+import { ClaimPanel } from "@/components/ClaimPanel";
+import { MIN_CLAIM_AMOUNT, TOKEN_SYMBOL } from "@/lib/constants";
 
 export const metadata = {
   title: `Mine $${TOKEN_SYMBOL} · BankrMine`,
@@ -19,19 +19,20 @@ export default function MinePage() {
           from this tab.
         </h1>
         <p className="text-[color:var(--muted)] leading-7">
-          Paste a Base / EVM wallet address. Your browser does the proof of
-          work locally; rewards land via the Bankr Wallet API. Nothing is
-          signed — the address is just a delivery destination.
+          Connect a Base wallet. Your browser brute-forces a per-wallet
+          keccak256 challenge — no signing, no gas. Solutions accrue as
+          off-chain IOUs. Once you cross {MIN_CLAIM_AMOUNT} ${TOKEN_SYMBOL} you
+          can mint on-chain in one click.
         </p>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <Miner />
+          <ClaimPanel />
         </div>
         <div className="space-y-4">
           <StatsPanel />
-          <LaunchStatus />
           <LiveFeed limit={10} />
         </div>
       </div>
