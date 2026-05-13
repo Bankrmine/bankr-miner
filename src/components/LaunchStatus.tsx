@@ -157,23 +157,6 @@ export function LaunchStatus({ pollMs = 15_000 }: { pollMs?: number }) {
           </span>
         </div>
         <div className="flex items-baseline justify-between gap-3">
-          <span className="label-kbd">bankr club</span>
-          <span className="text-xs font-mono">
-            {data.deployer.clubActive ? (
-              <span className="text-emerald-700">active</span>
-            ) : (
-              <a
-                href="https://bankr.bot/club"
-                target="_blank"
-                rel="noreferrer"
-                className="underline text-[color:var(--accent-strong)]"
-              >
-                inactive — activate to deploy ↗
-              </a>
-            )}
-          </span>
-        </div>
-        <div className="flex items-baseline justify-between gap-3">
           <span className="label-kbd">IOUs queued</span>
           <span className="text-right">
             <span className="font-mono text-sm">
