@@ -11,6 +11,7 @@ import {
   MINING_SUPPLY,
   HALVING_CADENCE_MINTS,
   ERA_1_REWARD,
+  MINE_TOKEN_ADDRESS,
 } from "@/lib/constants";
 
 const FMT = new Intl.NumberFormat("en-US");
@@ -36,10 +37,12 @@ export default function Home() {
             <a href="https://base.org" target="_blank" rel="noreferrer">
               Base
             </a>
-            . Total supply starts at 0 — ${TOKEN_SYMBOL} is{" "}
-            <em>minted only when miners claim</em>, capped at{" "}
-            {FMT.format(TOTAL_SUPPLY)}. Connect a Base wallet, let your browser
-            grind keccak256, then mint on-chain in one click.
+            . {FMT.format(MINING_SUPPLY)} ${TOKEN_SYMBOL} (90% of supply) is{" "}
+            <em>minted only when miners claim</em>; the remaining 10%
+            ({FMT.format(TOTAL_SUPPLY - MINING_SUPPLY)} ${TOKEN_SYMBOL}) was
+            owner-minted at launch for LP seed and deployer reserve. Hard cap:
+            {" "}{FMT.format(TOTAL_SUPPLY)}. Connect a Base wallet, let your
+            browser grind keccak256, then mint on-chain in one click.
           </p>
           <div className="flex flex-wrap gap-3">
             <Link href="/mine" className="btn btn-accent">
@@ -115,13 +118,13 @@ export default function Home() {
       <Section
         eyebrow="why this design"
         title="What makes this fair"
-        description="Mint-on-claim with a hard supply cap. No premine, no presale, no insiders. Liquidity and fees route to the deployer wallet by construction."
+        description="Mint-on-claim with a hard supply cap. 90% of supply distributed exclusively through PoW mining; 10% owner-minted at launch (5% LP seed + 5% deployer reserve) — both fully visible on-chain. No presale, no private allocation, no team vesting beyond the disclosed 5%."
       >
         <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
             {
-              h: "Supply = 0 at deploy",
-              p: `${TOKEN_NAME} starts at 0. ${"$" + TOKEN_SYMBOL} only comes into existence when a miner claim()s their accumulated PoW IOUs, capped at ${FMT.format(TOTAL_SUPPLY)}.`,
+              h: "90% of supply requires mining",
+              p: `${FMT.format(MINING_SUPPLY)} ${"$" + TOKEN_SYMBOL} (90%) is locked behind PoW — it only enters circulation when a miner calls claim(). The remaining 10% (5M LP seed + 5M deployer reserve) was owner-minted at launch. Hard cap: ${FMT.format(TOTAL_SUPPLY)}, immutable.`,
             },
             {
               h: "Backend-signed claims",
@@ -288,11 +291,11 @@ function FAQ() {
   const items = [
     {
       q: "Is the token live yet?",
-      a: `Live as soon as the operator deploys MineToken.sol on Base and sets MINE_TOKEN_ADDRESS + CLAIM_SIGNER_PRIVATE_KEY in the env. Until then, mining still works and accumulates IOUs server-side — they become claimable on-chain the moment the contract address is wired in. There are no fake "0xmock…" tx hashes anywhere in the UI.`,
+      a: `Live on Base mainnet. MineToken is deployed at ${MINE_TOKEN_ADDRESS} — verify on BaseScan. Mining accumulates IOUs server-side; once your balance crosses ${MIN_CLAIM_AMOUNT} ${"$" + TOKEN_SYMBOL}, the Claim button mints them on-chain via a backend-signed permit.`,
     },
     {
       q: "What's mint-on-claim?",
-      a: `Total supply starts at 0. ${"$" + TOKEN_SYMBOL} only exists once a miner calls claim() on MineToken.sol with a backend-signed permit. That means no premine, no foundation allocation, no team unlock — supply tracks real mining activity 1:1, capped at ${FMT.format(TOTAL_SUPPLY)} forever.`,
+      a: `90% of supply (${FMT.format(MINING_SUPPLY)} ${"$" + TOKEN_SYMBOL}) is minted lazily — it only exists once a miner calls claim() on MineToken.sol with a backend-signed permit. The other 10% (5M LP seed + 5M deployer reserve, the reserve under a 30-day off-chain lock) was owner-minted at launch and is visible on-chain. Hard cap ${FMT.format(TOTAL_SUPPLY)}, immutable. No presale, no airdrop, no team vesting beyond the disclosed 5%.`,
     },
     {
       q: `Why ${MIN_CLAIM_AMOUNT} $${TOKEN_SYMBOL} minimum claim?`,
