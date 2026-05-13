@@ -11,6 +11,7 @@ import type { Hex } from "viem";
 import mineTokenArtifact from "@/lib/contracts/MineToken.json";
 import { TARGET_CHAIN } from "@/lib/wagmi";
 import {
+  CLAIM_SIGNATURE_TTL_MS,
   MIN_CLAIM_AMOUNT,
   TOKEN_SYMBOL,
 } from "@/lib/constants";
@@ -30,9 +31,14 @@ type ClaimState = {
   availableWei?: string;
   lockedWei?: string;
   pending?: {
+    wallet?: string;
     nonce: string;
     amountWei: string;
     issuedAt: number;
+    /** EIP-191 signature blob – present for locks issued after the persist fix. */
+    signature?: string;
+    tokenAddress?: string;
+    chainId?: number;
   } | null;
 };
 
@@ -58,7 +64,12 @@ export function ClaimPanel() {
   const [refreshTick, setRefreshTick] = useState(0);
   const [signing, setSigning] = useState(false);
   const [signError, setSignError] = useState<string | null>(null);
-  const [activeSig, setActiveSig] = useState<ClaimSignature | null>(null);
+  /**
+   * Holds a sig minted in this tab (via requestSig) or cleared after a
+   * successful confirm. When null we fall back to the backend's persisted
+   * pending lock (see derived `activeSig` below).
+   */
+  const [localSig, setLocalSig] = useState<ClaimSignature | null>(null);
 
   const tokenAddress = state?.tokenAddress as `0x${string}` | undefined;
 
@@ -76,6 +87,37 @@ export function ClaimPanel() {
       aborted = true;
     };
   }, [wallet, refreshTick]);
+
+  /**
+   * Derive the sig the user can actually submit on-chain:
+   *  - prefer a fresh one minted in this tab,
+   *  - else hydrate from the backend's persisted pending lock so a page
+   *    reload doesn't strand the user with a signature they can no longer
+   *    request a replacement for.
+   */
+  const activeSig = useMemo<ClaimSignature | null>(() => {
+    if (localSig) return localSig;
+    const p = state?.pending;
+    if (!p || !p.signature || !p.tokenAddress || !p.chainId) return null;
+    let amountTokens = 0;
+    try {
+      const denom = 10n ** BigInt(state!.tokenDecimals);
+      amountTokens = Number(BigInt(p.amountWei) / denom);
+    } catch {
+      return null;
+    }
+    return {
+      ok: true,
+      wallet: (p.wallet ?? wallet ?? "").toLowerCase(),
+      amountTokens,
+      amountWei: p.amountWei,
+      nonce: p.nonce as Hex,
+      signature: p.signature as Hex,
+      chainId: p.chainId,
+      tokenAddress: p.tokenAddress as Hex,
+      expiresAt: p.issuedAt + CLAIM_SIGNATURE_TTL_MS,
+    };
+  }, [localSig, state, wallet]);
 
   // Read on-chain balance for the connected wallet (if token deployed)
   const balanceRead = useReadContract({
@@ -111,7 +153,7 @@ export function ClaimPanel() {
         setSigning(false);
         return;
       }
-      setActiveSig(json as ClaimSignature);
+      setLocalSig(json as ClaimSignature);
     } catch (err) {
       setSignError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -157,7 +199,7 @@ export function ClaimPanel() {
       }),
     }).finally(() => {
       if (!aborted) {
-        setActiveSig(null);
+        setLocalSig(null);
         setRefreshTick((t) => t + 1);
         balanceRead.refetch();
       }
@@ -217,6 +259,7 @@ export function ClaimPanel() {
           sendClaim={sendClaim}
           writeStatus={writeContract.status}
           writeError={writeContract.error}
+          writeReset={writeContract.reset}
           txHash={writeContract.data}
           txReceiptStatus={txReceipt.status}
           onChainBalanceTokens={onChainBalanceTokens}
@@ -235,6 +278,7 @@ function ClaimBody(props: {
   sendClaim: () => void;
   writeStatus: ReturnType<typeof useWriteContract>["status"];
   writeError: ReturnType<typeof useWriteContract>["error"];
+  writeReset: ReturnType<typeof useWriteContract>["reset"];
   txHash: Hex | undefined;
   txReceiptStatus: "pending" | "success" | "error";
   onChainBalanceTokens: number;
@@ -248,6 +292,7 @@ function ClaimBody(props: {
     sendClaim,
     writeStatus,
     writeError,
+    writeReset,
     txHash,
     txReceiptStatus,
     onChainBalanceTokens,
@@ -261,6 +306,13 @@ function ClaimBody(props: {
   );
   const canSign = available >= state.minClaim;
   const hasPending = Boolean(activeSig);
+  // useWaitForTransactionReceipt is disabled when there's no tx hash yet,
+  // but its status still defaults to "pending" — so we must ignore the
+  // status unless a real hash is being tracked. Without this guard the
+  // Mint button gets stuck on "Confirming on Base…" right after the
+  // backend issues a signature, before the user has even signed in their
+  // wallet.
+  const awaitingReceipt = Boolean(txHash) && txReceiptStatus === "pending";
 
   return (
     <div className="space-y-3 text-sm font-mono">
@@ -314,15 +366,17 @@ function ClaimBody(props: {
           </div>
           <button
             type="button"
-            onClick={sendClaim}
-            disabled={writeStatus === "pending" || txReceiptStatus === "pending"}
+            onClick={writeError ? writeReset : sendClaim}
+            disabled={writeStatus === "pending" || awaitingReceipt}
             className="btn btn-accent disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {writeStatus === "pending"
               ? "Waiting for wallet…"
-              : txReceiptStatus === "pending"
+              : awaitingReceipt
                 ? "Confirming on Base…"
-                : `Mint ${FMT.format(activeSig!.amountTokens)} ${TOKEN_SYMBOL} →`}
+                : writeError
+                  ? "Retry mint →"
+                  : `Mint ${FMT.format(activeSig!.amountTokens)} ${TOKEN_SYMBOL} →`}
           </button>
           {txHash ? (
             <div className="text-[11px] break-all">
