@@ -1,9 +1,9 @@
 /**
  * BankrMine protocol parameters.
  *
- * Tokenomics modeled after hash256.org. Distribution uses an on-chain
- * mint-on-claim ERC-20 on Base — supply is 0 at deploy and grows only
- * when miners cash in their off-chain PoW IOUs via claim().
+ * Distribution uses an on-chain mint-on-claim ERC-20 on Base — supply
+ * is 0 at deploy and grows only when miners cash in their off-chain
+ * PoW IOUs via claim().
  */
 
 export const TOKEN_NAME = "BankrMine";
@@ -59,7 +59,7 @@ export function eraForMintIndex(mintIndex: number): number {
 export const DIFFICULTY_LEADING_ZERO_BITS = 24; // ~2^24 hashes per solve
 export const MIN_DIFFICULTY_LEADING_ZERO_BITS = 20;
 export const MAX_DIFFICULTY_LEADING_ZERO_BITS = 32;
-export const RETARGET_INTERVAL_MINTS = 2016; // a la Bitcoin/hash256
+export const RETARGET_INTERVAL_MINTS = 2016; // a la Bitcoin
 export const TARGET_MINT_INTERVAL_MS = 60 * 1000;
 
 export const EPOCH_DURATION_MS = 10 * 60 * 1000; // 10 min per epoch
