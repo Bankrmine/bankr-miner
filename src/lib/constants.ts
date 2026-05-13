@@ -9,6 +9,14 @@
 export const TOKEN_NAME = "BankrMine";
 export const TOKEN_SYMBOL = "MINE";
 
+/**
+ * Live mainnet contract address. Mirrors the MINE_TOKEN_ADDRESS env var
+ * used by the backend; baked in here so UI copy can reference it without
+ * a runtime fetch.
+ */
+export const MINE_TOKEN_ADDRESS =
+  "0x953fd216902e6e43AF3d518a2767d7817FCe0490";
+
 export const TOTAL_SUPPLY = 100_000_000; // hard cap enforced on-chain
 export const DEPLOYER_RESERVE_PCT = 0.05; // 5% owner-minted, 30-day off-chain lock
 export const LP_SEED_PCT = 0.05; // 5% owner-minted to seed Uniswap/Aerodrome LP
