@@ -10,14 +10,12 @@
 
 **Mainnet contract:** [`0x953fd216902e6e43AF3d518a2767d7817FCe0490`](https://basescan.org/token/0x953fd216902e6e43AF3d518a2767d7817FCe0490) (Base, deployed 2025-05-13).
 
-This repo is the reference frontend + backend + smart contract for **`$MINE`**, with mining math inspired by [hash256.org](https://hash256.org) but tuned for Base:
+This repo is the reference frontend + backend + smart contract for **`$MINE`**:
 
-| hash256.org                                  | BankrMine                                                  |
-| -------------------------------------------- | ---------------------------------------------------------- |
-| Custom Solidity contract on Ethereum mainnet | `MineToken.sol` ERC-20 on Base                             |
-| `mine(nonce)` on-chain verifier              | `/api/mine` off-chain verifier (open source, deterministic) |
-| Reward minted by contract per solve          | Reward batched as IOU, minted on `claim(amount, nonce, signature)` |
-| Gas paid by miner per solve                  | Gas paid by miner only on claim; mining itself is gasless  |
+- `MineToken.sol` ERC-20 deployed on Base.
+- `/api/mine` off-chain verifier (open source, deterministic).
+- Reward batched as an IOU, minted on-chain via `claim(amount, nonce, signature)`.
+- Gas is paid by the miner only on claim — mining itself is gasless.
 
 ## How it works
 
@@ -147,7 +145,6 @@ UPSTASH_REDIS_REST_TOKEN=...
 
 ## Acknowledgements
 
-- [hash256.org](https://hash256.org) for the cleanest implementation of browser-mineable tokenomics.
 - [OpenZeppelin](https://www.openzeppelin.com/contracts) for the audited ERC-20 + ECDSA primitives used in `MineToken.sol`.
 
 ## License
