@@ -90,14 +90,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (noncePreviouslyUsed(wallet, epoch, nonceParam)) {
+  if (await noncePreviouslyUsed(wallet, epoch, nonceParam)) {
     return Response.json(
       { error: "nonce already claimed" },
       { status: 409 },
     );
   }
 
-  const quota = canMint(epoch, wallet);
+  const quota = await canMint(epoch, wallet);
   if (!quota.ok) {
     return Response.json({ error: quota.reason }, { status: 429 });
   }
@@ -120,12 +120,18 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const mint = recordMint({
-    wallet,
-    epoch,
-    nonce: nonceParam,
-    hash: "0x" + bytesToHex(hash),
-  });
+  let mint;
+  try {
+    mint = await recordMint({
+      wallet,
+      epoch,
+      nonce: nonceParam,
+      hash: "0x" + bytesToHex(hash),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "mint rejected";
+    return Response.json({ error: message }, { status: 409 });
+  }
 
   // Dispatch the reward via Bankr when possible; never fabricate a fake
   // on-chain tx hash. Either way, persist the reward as an IOU so the
@@ -138,7 +144,7 @@ export async function POST(req: NextRequest) {
   if (transfer.txHash) {
     mint.txHash = transfer.txHash;
   }
-  const iou = enqueueReward({
+  const iou = await enqueueReward({
     wallet,
     mintIndex: mint.index,
     amount: mint.reward,
@@ -149,7 +155,7 @@ export async function POST(req: NextRequest) {
 
   publish({ type: "mint", mint });
 
-  const stats = getStats();
+  const stats = await getStats();
   return Response.json({
     ok: true,
     mint,

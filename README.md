@@ -94,6 +94,20 @@ npm run dev
 
 No environment variables are required to run the preview — rewards queue as IOUs so the full UI flow is demoable end-to-end.
 
+For production, configure durable Redis/KV storage so serverless cold starts and
+instance rotation do not clear mined blocks, leaderboard rows, or IOUs:
+
+```bash
+KV_REST_API_URL=https://...
+KV_REST_API_TOKEN=...
+# or the equivalent Upstash names:
+UPSTASH_REDIS_REST_URL=https://...
+UPSTASH_REDIS_REST_TOKEN=...
+```
+
+Without those variables, the app intentionally falls back to in-memory state for
+local demos only.
+
 ## Path to a real launch
 
 1. **Generate a Bankr API key** at https://bankr.bot/api. Enable: Wallet API, Agent API, Token Launch API. Disable "Read Only Mode".

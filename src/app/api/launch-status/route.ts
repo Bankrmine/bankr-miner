@@ -24,7 +24,7 @@ export async function GET() {
     getDeployerStatus(),
     getRecentBankrLaunches(8),
   ]);
-  const queue = getQueueSummary();
+  const queue = await getQueueSummary();
 
   let phase: "no-key" | "pre-launch" | "live";
   if (!deployer.configured) phase = "no-key";
