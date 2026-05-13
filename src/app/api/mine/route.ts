@@ -1,18 +1,15 @@
 import { NextRequest } from "next/server";
 import { normalizeAddress } from "@/lib/address";
-import {
-  CHAIN_ID_BASE,
-  DIFFICULTY_LEADING_ZERO_BITS,
-  EPOCH_DURATION_MS,
-  PROJECT_ID,
-} from "@/lib/constants";
+import { CHAIN_ID_BASE, EPOCH_DURATION_MS, PROJECT_ID } from "@/lib/constants";
 import { bytesToHex } from "@/lib/hash";
 import { currentEpoch, deriveChallenge, verifySolution } from "@/lib/protocol";
 import { transferReward, bankrConfigured, tokenLaunched } from "@/lib/server/bankr";
 import { publish } from "@/lib/server/events";
 import { enqueueReward } from "@/lib/server/queue";
+import { clientIp } from "@/lib/server/request";
 import {
   canMint,
+  getDifficulty,
   noncePreviouslyUsed,
   recordMint,
   getStats,
@@ -97,10 +94,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const quota = await canMint(epoch, wallet);
+  const ip = clientIp(req);
+  const quota = await canMint(epoch, wallet, ip);
   if (!quota.ok) {
     return Response.json({ error: quota.reason }, { status: 429 });
   }
+
+  const difficulty = await getDifficulty();
 
   const challengeBytes = deriveChallenge({
     projectId: PROJECT_ID,
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
   const { valid, hash } = verifySolution({
     challenge: challengeBytes,
     nonce,
-    difficultyBits: DIFFICULTY_LEADING_ZERO_BITS,
+    difficultyBits: difficulty.bits,
   });
   if (!valid) {
     return Response.json(
@@ -124,6 +124,7 @@ export async function POST(req: NextRequest) {
   try {
     mint = await recordMint({
       wallet,
+      ip,
       epoch,
       nonce: nonceParam,
       hash: "0x" + bytesToHex(hash),

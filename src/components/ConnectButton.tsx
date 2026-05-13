@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  useConnect,
   useConnection,
   useDisconnect,
   useChainId,
   useSwitchChain,
 } from "wagmi";
-import { TARGET_CHAIN } from "@/lib/wagmi";
+import { useAppKit } from "@reown/appkit/react";
+import { HAS_WALLETCONNECT_PROJECT_ID, TARGET_CHAIN } from "@/lib/wagmi";
 import { toChecksumAddress } from "@/lib/address";
 
 function shortAddr(addr: string): string {
@@ -16,12 +16,32 @@ function shortAddr(addr: string): string {
 }
 
 export function ConnectButton() {
+  // AppKit registers its hooks only after `createAppKit()` runs, which is
+  // a client-only effect inside `Providers`. During SSR/SSG we render a
+  // placeholder so `useAppKit()` is never called on the server.
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
+  if (!ready) {
+    return (
+      <button
+        type="button"
+        disabled
+        className="btn btn-accent opacity-50 cursor-default"
+        aria-hidden="true"
+      >
+        Connect wallet
+      </button>
+    );
+  }
+  return <ConnectButtonClient />;
+}
+
+function ConnectButtonClient() {
   const conn = useConnection();
   const chainId = useChainId();
-  const { connectors, connect, status: connectStatus, error } = useConnect();
   const { disconnect } = useDisconnect();
   const { switchChain, status: switchStatus } = useSwitchChain();
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const { open } = useAppKit();
 
   if (conn.isConnected && conn.address) {
     const wrongChain = chainId !== TARGET_CHAIN.id;
@@ -41,9 +61,13 @@ export function ConnectButton() {
               : `Switch to ${TARGET_CHAIN.name}`}
           </button>
         ) : (
-          <span className="font-mono text-xs px-3 py-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-muted)]">
+          <button
+            type="button"
+            onClick={() => open({ view: "Account" })}
+            className="font-mono text-xs px-3 py-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-muted)] hover:bg-[color:var(--surface)] cursor-pointer"
+          >
             {shortAddr(display)}
-          </span>
+          </button>
         )}
         <button
           type="button"
@@ -56,48 +80,26 @@ export function ConnectButton() {
     );
   }
 
-  if (!pickerOpen) {
+  if (!HAS_WALLETCONNECT_PROJECT_ID) {
     return (
       <button
         type="button"
-        onClick={() => setPickerOpen(true)}
-        className="btn btn-accent"
+        disabled
+        className="btn btn-accent opacity-60 cursor-not-allowed"
+        title="Set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID to enable the wallet picker"
       >
-        Connect wallet
+        Wallet picker unavailable
       </button>
     );
   }
 
   return (
-    <div className="flex flex-col gap-2 items-start">
-      <div className="text-xs text-[color:var(--muted)] font-mono">
-        connect a wallet on {TARGET_CHAIN.name}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {connectors.map((c) => (
-          <button
-            key={c.uid}
-            type="button"
-            onClick={() => connect({ connector: c })}
-            className="btn btn-ghost"
-            disabled={connectStatus === "pending"}
-          >
-            {c.name}
-          </button>
-        ))}
-        <button
-          type="button"
-          onClick={() => setPickerOpen(false)}
-          className="btn btn-ghost text-[color:var(--muted)]"
-        >
-          Cancel
-        </button>
-      </div>
-      {error ? (
-        <div className="text-xs text-[color:var(--accent)] font-mono">
-          {error.message}
-        </div>
-      ) : null}
-    </div>
+    <button
+      type="button"
+      onClick={() => open()}
+      className="btn btn-accent"
+    >
+      Connect wallet
+    </button>
   );
 }

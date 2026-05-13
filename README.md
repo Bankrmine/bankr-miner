@@ -27,7 +27,7 @@ This repo is the reference frontend + backend + smart contract for **`$MINE`**, 
 
 The signed digest is `keccak256(abi.encodePacked(claimer, amount, nonce, chainId, contract))` wrapped in `"\x19Ethereum Signed Message:\n32"`. Anti-replay is on-chain via `mapping(bytes32 => bool) usedNonces`.
 
-Difficulty, era schedule, claim threshold, and per-epoch quotas live in [`src/lib/constants.ts`](./src/lib/constants.ts). The contract is at [`contracts/MineToken.sol`](./contracts/MineToken.sol).
+Difficulty, era schedule, claim threshold, and per-epoch quotas live in [`src/lib/constants.ts`](./src/lib/constants.ts). The contract is at [`contracts/MineToken.sol`](./contracts/MineToken.sol). The current baseline is 24 leading-zero bits with dynamic retargeting every 2,016 mints toward one global mint per minute, and per-wallet + per-IP rate limits applied to `/api/mine`.
 
 ## Tokenomics (defaults)
 

@@ -2,12 +2,12 @@ import { NextRequest } from "next/server";
 import { normalizeAddress } from "@/lib/address";
 import {
   CHAIN_ID_BASE,
-  DIFFICULTY_LEADING_ZERO_BITS,
   EPOCH_DURATION_MS,
   PROJECT_ID,
 } from "@/lib/constants";
 import { bytesToHex } from "@/lib/hash";
 import { currentEpoch, deriveChallenge } from "@/lib/protocol";
+import { getDifficulty } from "@/lib/server/state";
 
 export const dynamic = "force-dynamic";
 
@@ -48,13 +48,15 @@ export async function GET(req: NextRequest) {
   const epochEndsAt = (epoch + 1) * EPOCH_DURATION_MS;
   const epochMsLeft = Math.max(0, epochEndsAt - nowMs);
 
+  const difficulty = await getDifficulty();
+
   return Response.json({
     wallet,
     epoch,
     epochDurationMs: EPOCH_DURATION_MS,
     epochMsLeft,
     challenge,
-    difficultyBits: DIFFICULTY_LEADING_ZERO_BITS,
+    difficultyBits: difficulty.bits,
     projectId: PROJECT_ID,
     chainId: CHAIN_ID_BASE,
   });

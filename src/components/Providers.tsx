@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { WagmiProvider } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { getWagmiConfig } from "@/lib/wagmi";
+import { getWagmiConfig, initAppKit } from "@/lib/wagmi";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -18,6 +18,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
       }),
   );
   const [config] = useState(() => getWagmiConfig());
+
+  // AppKit creates DOM web components on init, so it must run only after
+  // hydration — never during SSR/build.
+  useEffect(() => {
+    initAppKit();
+  }, []);
 
   return (
     <WagmiProvider config={config}>

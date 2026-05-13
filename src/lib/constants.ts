@@ -54,15 +54,17 @@ export function eraForMintIndex(mintIndex: number): number {
  * We pick a target such that `keccak256(challenge ‖ nonce) < TARGET`.
  * Smaller TARGET = harder.
  *
- * For Phase 1 demo we set leading zero bits low so a multi-core CPU
- * finds a solution in a few seconds. Real launch will tune this and
- * implement difficulty retargeting every RETARGET_INTERVAL mints.
+ * Retargeting aims for one successful mint per minute globally.
  */
-export const DIFFICULTY_LEADING_ZERO_BITS = 20; // ~2^20 hashes per solve
+export const DIFFICULTY_LEADING_ZERO_BITS = 24; // ~2^24 hashes per solve
+export const MIN_DIFFICULTY_LEADING_ZERO_BITS = 20;
+export const MAX_DIFFICULTY_LEADING_ZERO_BITS = 32;
 export const RETARGET_INTERVAL_MINTS = 2016; // a la Bitcoin/hash256
+export const TARGET_MINT_INTERVAL_MS = 60 * 1000;
 
 export const EPOCH_DURATION_MS = 10 * 60 * 1000; // 10 min per epoch
-export const MAX_MINTS_PER_EPOCH_PER_WALLET = 10; // anti-spam guard
+export const MAX_MINTS_PER_EPOCH_PER_WALLET = 5; // anti-spam guard
+export const MAX_MINTS_PER_EPOCH_PER_IP = 20;
 
 /**
  * Optional small ETH tip per mint that routes to the deployer wallet to
