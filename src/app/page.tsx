@@ -3,7 +3,6 @@ import Image from "next/image";
 import { StatsPanel } from "@/components/StatsPanel";
 import { Leaderboard } from "@/components/Leaderboard";
 import { LaunchStatus } from "@/components/LaunchStatus";
-import { RiskBanner } from "@/components/RiskBanner";
 import {
   MIN_CLAIM_AMOUNT,
   TOKEN_NAME,
@@ -85,10 +84,6 @@ export default function Home() {
 
       <section className="mt-10">
         <ContractAddressCard />
-      </section>
-
-      <section className="mt-4">
-        <RiskBanner />
       </section>
 
       <section className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
