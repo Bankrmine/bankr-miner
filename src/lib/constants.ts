@@ -10,12 +10,28 @@ export const TOKEN_NAME = "BankrMine";
 export const TOKEN_SYMBOL = "MINE";
 
 /**
- * Live mainnet contract address. Mirrors the MINE_TOKEN_ADDRESS env var
- * used by the backend; baked in here so UI copy can reference it without
- * a runtime fetch.
+ * Default Live mainnet contract address. Mirrors the MINE_TOKEN_ADDRESS
+ * env var used by the backend; baked in here so UI copy can reference
+ * it without a runtime fetch. Server code should prefer
+ * `getMineTokenAddress()` so an operator-initiated cutover (V1 -> V2,
+ * etc.) only requires updating MINE_TOKEN_ADDRESS in the deployment env
+ * and not a redeploy.
  */
 export const MINE_TOKEN_ADDRESS =
-  "0x953fd216902e6e43AF3d518a2767d7817FCe0490";
+  "0xD70A1e177a13a3A5DAea5e9fF23D613DA9BfE3d2";
+
+/**
+ * Server-only helper: prefer the live env-configured token address over
+ * the baked-in constant so the UI never disagrees with the address the
+ * backend signs claims against. Safe to call from server components and
+ * route handlers; do NOT import from client components (process.env is
+ * not reliably populated there).
+ */
+export function getMineTokenAddress(): string {
+  const fromEnv = process.env.MINE_TOKEN_ADDRESS;
+  if (fromEnv && /^0x[0-9a-fA-F]{40}$/.test(fromEnv)) return fromEnv;
+  return MINE_TOKEN_ADDRESS;
+}
 
 export const TOTAL_SUPPLY = 100_000_000; // hard cap enforced on-chain
 export const DEPLOYER_RESERVE_PCT = 0.05; // 5% owner-minted, 30-day off-chain lock

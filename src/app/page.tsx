@@ -3,6 +3,7 @@ import Image from "next/image";
 import { StatsPanel } from "@/components/StatsPanel";
 import { Leaderboard } from "@/components/Leaderboard";
 import { LaunchStatus } from "@/components/LaunchStatus";
+import { RiskBanner } from "@/components/RiskBanner";
 import {
   MIN_CLAIM_AMOUNT,
   TOKEN_NAME,
@@ -11,7 +12,7 @@ import {
   MINING_SUPPLY,
   HALVING_CADENCE_MINTS,
   ERA_1_REWARD,
-  MINE_TOKEN_ADDRESS,
+  getMineTokenAddress,
 } from "@/lib/constants";
 
 const FMT = new Intl.NumberFormat("en-US");
@@ -82,7 +83,15 @@ export default function Home() {
         </aside>
       </section>
 
-      <section className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-4">
+      <section className="mt-10">
+        <ContractAddressCard />
+      </section>
+
+      <section className="mt-4">
+        <RiskBanner />
+      </section>
+
+      <section className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
         <StatsPanel />
         <LaunchStatus />
       </section>
@@ -161,7 +170,7 @@ export default function Home() {
       <section className="mt-16 terminal p-8 text-center">
         <div className="label-kbd mb-3">ready when you are</div>
         <h2 className="text-3xl font-bold tracking-tight">
-          Open the terminal. Burn some cycles. Mint ${TOKEN_SYMBOL}.
+          Open your browser. Burn some CPU cycles. Mint ${TOKEN_SYMBOL}.
         </h2>
         <p className="text-[color:var(--muted)] mt-3 max-w-lg mx-auto">
           {FMT.format(MINING_SUPPLY)} ${TOKEN_SYMBOL} are up for grabs. First
@@ -229,6 +238,34 @@ function Steps({ items }: { items: string[] }) {
   );
 }
 
+function ContractAddressCard() {
+  const address = getMineTokenAddress();
+  const href = `https://basescan.org/token/${address}`;
+  return (
+    <div className="terminal p-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="min-w-0">
+        <div className="label-kbd">contract · ${TOKEN_SYMBOL} on base</div>
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          className="font-mono text-xs sm:text-sm break-all underline"
+        >
+          {address}
+        </a>
+      </div>
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        className="btn btn-ghost text-xs whitespace-nowrap"
+      >
+        view on basescan ↗
+      </a>
+    </div>
+  );
+}
+
 function TokenomicsTable() {
   const rows: [string, string, string][] = [
     ["max supply", `${FMT.format(TOTAL_SUPPLY)} ${TOKEN_SYMBOL}`, "hard cap enforced on-chain"],
@@ -287,7 +324,7 @@ function FAQ() {
   const items = [
     {
       q: "Is the token live yet?",
-      a: `Live on Base mainnet. MineToken is deployed at ${MINE_TOKEN_ADDRESS} — verify on BaseScan. Mining accumulates IOUs server-side; once your balance crosses ${MIN_CLAIM_AMOUNT} ${"$" + TOKEN_SYMBOL}, the Claim button mints them on-chain via a backend-signed permit.`,
+      a: `Live on Base mainnet. MineToken is deployed at ${getMineTokenAddress()} — verify on BaseScan. Mining accumulates IOUs server-side; once your balance crosses ${MIN_CLAIM_AMOUNT} ${"$" + TOKEN_SYMBOL}, the Claim button mints them on-chain via a backend-signed permit.`,
     },
     {
       q: "What's mint-on-claim?",
