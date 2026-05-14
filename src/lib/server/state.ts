@@ -11,6 +11,7 @@ import {
   eraForMintIndex,
   rewardForMintIndex,
 } from "../constants";
+import { getAggregateClaimedWei, weiToTokens } from "./claim";
 import { decodeStored, getRedis } from "./redis";
 
 export type MintRecord = {
@@ -100,6 +101,9 @@ export async function getTotalMinted(): Promise<number> {
 export async function getStats() {
   const mintCount = await getMintCount();
   const totalMinted = await getTotalMinted();
+  const aggregateClaimedWei = await getAggregateClaimedWei();
+  const claimedOnChain = weiToTokens(aggregateClaimedWei);
+  const pendingMinted = Math.max(0, totalMinted - claimedOnChain);
   const difficulty = await getDifficulty();
   const era = eraForMintIndex(mintCount);
   const nextReward = rewardForMintIndex(mintCount);
@@ -110,6 +114,14 @@ export async function getStats() {
   return {
     mintCount,
     totalMinted,
+    /** Off-chain IOU balance still waiting to be claimed on-chain. */
+    pendingMinted,
+    /**
+     * Total $MINE that has actually been claimed on-chain (via
+     * MineToken.claim()). Tracked off-chain by /api/claim/confirm so the
+     * UI doesn't have to hit an RPC on every /api/stats poll.
+     */
+    claimedOnChain,
     remainingSupply,
     miningSupply: MINING_SUPPLY,
     era,
