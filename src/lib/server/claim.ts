@@ -163,15 +163,43 @@ function isClaimLockExpired(claim: PendingClaim, now: number): boolean {
   return now - claim.issuedAt >= CLAIM_SIGNATURE_TTL_MS;
 }
 
+function getCurrentTokenAddress(): string | null {
+  const t = process.env.MINE_TOKEN_ADDRESS;
+  if (!t || !isAddress(t)) return null;
+  return getAddress(t);
+}
+
+/**
+ * Returns true if a lock was issued against a contract address that no
+ * longer matches `MINE_TOKEN_ADDRESS` (e.g. after a V2 cutover). The
+ * signature inside such a lock recovers a digest that's bound to the old
+ * contract address, so any on-chain attempt would revert with
+ * `InvalidSignature()`. Treat it as evictable so the wallet can request a
+ * fresh signature against the current contract immediately.
+ */
+function isClaimLockForOldContract(claim: PendingClaim): boolean {
+  const current = getCurrentTokenAddress();
+  if (!current) return false;
+  try {
+    return getAddress(claim.tokenAddress) !== current;
+  } catch {
+    return true;
+  }
+}
+
 /**
  * A pending lock is only honoured if it carries the signature that lets
  * the frontend resume submission. Legacy locks predating signature-persist
  * are treated as expired so users aren't stuck holding IOUs they can't mint.
+ * Locks tied to a previous contract deployment are also treated as expired
+ * so a contract cutover doesn't strand wallets behind a 30-minute TTL.
  */
 function isClaimLockUsable(claim: PendingClaim | null, now: number): claim is PendingClaim & { signature: Hex } {
   if (!claim) return false;
   if (!claim.signature) return false;
-  return !isClaimLockExpired(claim, now);
+  if (isClaimLockExpired(claim, now)) return false;
+  if (isClaimLockForOldContract(claim)) return false;
+  return true;
 }
 
 export type ClaimableState = {
@@ -197,6 +225,13 @@ export async function getClaimableState(
   const totalClaimedWei = await getTotalClaimedWei(normalized);
   const pending = await getPendingClaim(normalized);
   const now = Date.now();
+  // If the lock is unusable solely because it was signed against an old
+  // contract address (V1 -> V2 cutover), evict it now so the wallet can
+  // immediately request a fresh signature instead of waiting for the
+  // 30-minute TTL.
+  if (pending && pending.signature && !isClaimLockExpired(pending, now) && isClaimLockForOldContract(pending)) {
+    await clearPendingClaim(normalized);
+  }
   const usable = isClaimLockUsable(pending, now);
   const lockedWei = usable ? BigInt(pending!.amountWei) : 0n;
 
