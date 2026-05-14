@@ -2,7 +2,6 @@ import { Miner } from "@/components/Miner";
 import { StatsPanel } from "@/components/StatsPanel";
 import { LiveFeed } from "@/components/LiveFeed";
 import { ClaimPanel } from "@/components/ClaimPanel";
-import { RiskBanner } from "@/components/RiskBanner";
 import { MIN_CLAIM_AMOUNT, TOKEN_SYMBOL } from "@/lib/constants";
 
 export const metadata = {
@@ -34,8 +33,6 @@ export default function MinePage() {
           can mint on-chain in one click.
         </p>
       </header>
-
-      <RiskBanner />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
