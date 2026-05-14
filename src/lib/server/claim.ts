@@ -33,6 +33,14 @@ const keys = {
   totalClaimed: (wallet: string) => `${REDIS_PREFIX}:totalClaimed:${wallet}`,
   pendingLock: (wallet: string) => `${REDIS_PREFIX}:pending:${wallet}`,
   noncesIssued: `${REDIS_PREFIX}:noncesIssued`,
+  /**
+   * Single aggregate counter (wei, base-10 string) that mirrors the sum of
+   * `totalClaimed:<wallet>` across the whole ledger. Bumped atomically inside
+   * `confirmClaim` whenever a miner promotes a pending lock into a permanent
+   * `totalClaimed` total. Exposed by /api/stats so the UI can split the
+   * "mined off-chain IOU" total from the "actually claimed on-chain" total.
+   */
+  aggregateClaimed: `${REDIS_PREFIX}:totalClaimed:aggregate`,
 };
 
 const MEMORY_KEY = "__bankr_miner_claim__";
@@ -40,6 +48,7 @@ const MEMORY_KEY = "__bankr_miner_claim__";
 type MemStore = {
   totalClaimed: Map<string, bigint>; // wallet (lowercase) → wei amount
   pending: Map<string, PendingClaim | null>; // wallet → active claim lock
+  aggregateClaimed: bigint; // sum of all totalClaimed across wallets (wei)
 };
 
 export type PendingClaim = {
@@ -70,6 +79,7 @@ function mem(): MemStore {
     store = {
       totalClaimed: new Map(),
       pending: new Map(),
+      aggregateClaimed: 0n,
     };
     g[MEMORY_KEY] = store;
   }
@@ -124,6 +134,35 @@ async function bumpTotalClaimed(wallet: string, deltaWei: bigint): Promise<bigin
   const next = (store.totalClaimed.get(normalized) ?? 0n) + deltaWei;
   store.totalClaimed.set(normalized, next);
   return next;
+}
+
+/**
+ * Aggregate "claimed on-chain" wei across every wallet. Read by /api/stats
+ * to surface the on-chain claim total separately from the off-chain mining
+ * IOU total.
+ */
+export async function getAggregateClaimedWei(): Promise<bigint> {
+  const redis = getRedis();
+  if (redis) {
+    const raw = await redis.get<string | number>(keys.aggregateClaimed);
+    if (raw === null || raw === undefined) return 0n;
+    return BigInt(String(raw));
+  }
+  return mem().aggregateClaimed;
+}
+
+async function bumpAggregateClaimed(deltaWei: bigint): Promise<bigint> {
+  if (deltaWei <= 0n) return getAggregateClaimedWei();
+  const redis = getRedis();
+  if (redis) {
+    const current = await getAggregateClaimedWei();
+    const next = current + deltaWei;
+    await redis.set(keys.aggregateClaimed, next.toString());
+    return next;
+  }
+  const store = mem();
+  store.aggregateClaimed += deltaWei;
+  return store.aggregateClaimed;
 }
 
 export async function getPendingClaim(wallet: string): Promise<PendingClaim | null> {
@@ -454,7 +493,9 @@ export async function confirmClaim(args: {
     };
   }
 
-  const total = await bumpTotalClaimed(args.wallet, BigInt(pending.amountWei));
+  const delta = BigInt(pending.amountWei);
+  const total = await bumpTotalClaimed(args.wallet, delta);
+  await bumpAggregateClaimed(delta);
   await clearPendingClaim(args.wallet);
   return { ok: true, totalClaimedWei: total.toString(), txHash: args.txHash };
 }

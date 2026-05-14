@@ -6,6 +6,8 @@ import { TOKEN_SYMBOL } from "@/lib/constants";
 type Stats = {
   mintCount: number;
   totalMinted: number;
+  pendingMinted: number;
+  claimedOnChain: number;
   remainingSupply: number;
   miningSupply: number;
   era: number;
@@ -54,7 +56,8 @@ export function StatsPanel({ pollMs = 3000 }: { pollMs?: number }) {
     );
   }
 
-  const mintedPct = (stats.totalMinted / stats.miningSupply) * 100;
+  const minedPct = (stats.totalMinted / stats.miningSupply) * 100;
+  const claimedPct = (stats.claimedOnChain / stats.miningSupply) * 100;
   const eraPct = (stats.mintsThisEra / stats.halvingCadence) * 100;
 
   return (
@@ -74,11 +77,17 @@ export function StatsPanel({ pollMs = 3000 }: { pollMs?: number }) {
         hint={`next reward: ${stats.nextReward} ${TOKEN_SYMBOL}/mint`}
       />
       <Row
-        label="minted"
+        label="mined (iou)"
         value={`${FMT.format(stats.totalMinted)} ${TOKEN_SYMBOL}`}
-        hint={`${mintedPct.toFixed(4)}% of ${FMT.format(stats.miningSupply)}`}
+        hint={`${minedPct.toFixed(4)}% of ${FMT.format(stats.miningSupply)} · off-chain`}
       />
-      <Bar pct={mintedPct} />
+      <Bar pct={minedPct} />
+      <Row
+        label="claimed on-chain"
+        value={`${FMT.format(stats.claimedOnChain)} ${TOKEN_SYMBOL}`}
+        hint={`${FMT.format(stats.pendingMinted)} ${TOKEN_SYMBOL} pending claim`}
+      />
+      <Bar pct={claimedPct} />
       <Row
         label="this era"
         value={`${FMT.format(stats.mintsThisEra)} / ${FMT.format(stats.halvingCadence)} mints`}
