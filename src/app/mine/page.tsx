@@ -8,6 +8,14 @@ export const metadata = {
   title: `Mine $${TOKEN_SYMBOL} · BankrMine`,
 };
 
+// Render /mine on every request and forbid any HTTP cache (CDN or browser)
+// from re-serving an old document body. Chrome+Vercel's edge cache can
+// otherwise replay a stale RSC payload as the HTML response on a hard
+// refresh, which surfaces as a blank "This page couldn't load" page.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
+
 export default function MinePage() {
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-14 space-y-8">
