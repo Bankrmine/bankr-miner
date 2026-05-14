@@ -12,7 +12,7 @@ import {
   MINING_SUPPLY,
   HALVING_CADENCE_MINTS,
   ERA_1_REWARD,
-  MINE_TOKEN_ADDRESS,
+  getMineTokenAddress,
 } from "@/lib/constants";
 
 const FMT = new Intl.NumberFormat("en-US");
@@ -239,21 +239,23 @@ function Steps({ items }: { items: string[] }) {
 }
 
 function ContractAddressCard() {
+  const address = getMineTokenAddress();
+  const href = `https://basescan.org/token/${address}`;
   return (
     <div className="terminal p-4 flex flex-wrap items-center justify-between gap-3">
       <div className="min-w-0">
         <div className="label-kbd">contract · ${TOKEN_SYMBOL} on base</div>
         <a
-          href={`https://basescan.org/token/${MINE_TOKEN_ADDRESS}`}
+          href={href}
           target="_blank"
           rel="noreferrer"
           className="font-mono text-xs sm:text-sm break-all underline"
         >
-          {MINE_TOKEN_ADDRESS}
+          {address}
         </a>
       </div>
       <a
-        href={`https://basescan.org/token/${MINE_TOKEN_ADDRESS}`}
+        href={href}
         target="_blank"
         rel="noreferrer"
         className="btn btn-ghost text-xs whitespace-nowrap"
@@ -322,7 +324,7 @@ function FAQ() {
   const items = [
     {
       q: "Is the token live yet?",
-      a: `Live on Base mainnet. MineToken is deployed at ${MINE_TOKEN_ADDRESS} — verify on BaseScan. Mining accumulates IOUs server-side; once your balance crosses ${MIN_CLAIM_AMOUNT} ${"$" + TOKEN_SYMBOL}, the Claim button mints them on-chain via a backend-signed permit.`,
+      a: `Live on Base mainnet. MineToken is deployed at ${getMineTokenAddress()} — verify on BaseScan. Mining accumulates IOUs server-side; once your balance crosses ${MIN_CLAIM_AMOUNT} ${"$" + TOKEN_SYMBOL}, the Claim button mints them on-chain via a backend-signed permit.`,
     },
     {
       q: "What's mint-on-claim?",
