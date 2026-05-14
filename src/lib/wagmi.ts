@@ -84,3 +84,16 @@ export function initAppKit() {
     },
   });
 }
+
+// Initialise AppKit as early as possible on the client, at module-load time.
+// `Providers` also calls this from `useEffect`, but that fires *after* the
+// first commit, while `useSyncExternalStore` in `ConnectButton` can flip its
+// snapshot and re-render `ConnectButtonClient` (which calls `useAppKit()`)
+// before parent effects run — that race is what blew up `/mine` with
+// `Error: Please call "createAppKit" before using "useAppKit" hook`.
+//
+// Calling here runs once the client bundle imports this module, which
+// happens before React begins hydration, so the modal singleton is ready
+// by the time any hook reads it. The SSR/build path is guarded inside
+// `initAppKit`.
+initAppKit();

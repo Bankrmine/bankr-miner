@@ -8,7 +8,11 @@ import {
   useSwitchChain,
 } from "wagmi";
 import { useAppKit } from "@reown/appkit/react";
-import { HAS_WALLETCONNECT_PROJECT_ID, TARGET_CHAIN } from "@/lib/wagmi";
+import {
+  HAS_WALLETCONNECT_PROJECT_ID,
+  TARGET_CHAIN,
+  initAppKit,
+} from "@/lib/wagmi";
 import { toChecksumAddress } from "@/lib/address";
 
 function shortAddr(addr: string): string {
@@ -43,10 +47,31 @@ export function ConnectButton() {
       </button>
     );
   }
+  if (!HAS_WALLETCONNECT_PROJECT_ID) {
+    // No project id → `initAppKit` is a no-op and the AppKit singleton was
+    // never created. Render the static placeholder up here so we don't even
+    // reach the inner client that would call `useAppKit()` and throw.
+    return (
+      <button
+        type="button"
+        disabled
+        className="btn btn-accent opacity-60 cursor-not-allowed"
+        title="Set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID to enable the wallet picker"
+      >
+        Wallet picker unavailable
+      </button>
+    );
+  }
   return <ConnectButtonClient />;
 }
 
 function ConnectButtonClient() {
+  // Ensure the AppKit singleton exists before any hook reads it. `lib/wagmi`
+  // already calls this at module-load, but React can re-render this client
+  // component before its parent's `useEffect` runs (via
+  // `useSyncExternalStore`), so we re-assert it here. `initAppKit` is
+  // idempotent.
+  initAppKit();
   const conn = useConnection();
   const chainId = useChainId();
   const { disconnect } = useDisconnect();
@@ -87,19 +112,6 @@ function ConnectButtonClient() {
           Disconnect
         </button>
       </div>
-    );
-  }
-
-  if (!HAS_WALLETCONNECT_PROJECT_ID) {
-    return (
-      <button
-        type="button"
-        disabled
-        className="btn btn-accent opacity-60 cursor-not-allowed"
-        title="Set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID to enable the wallet picker"
-      >
-        Wallet picker unavailable
-      </button>
     );
   }
 
