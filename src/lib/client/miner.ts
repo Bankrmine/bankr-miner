@@ -37,6 +37,12 @@ export function startMiner(args: StartMinerArgs): MinerHandle {
       Math.min(16, navigator.hardwareConcurrency || 4),
     );
   const reportEvery = args.reportEveryHashes ?? 4_000;
+  // Pick a random 56-bit base offset so two mining sessions on the same
+  // (wallet, epoch) challenge don't converge on the same smallest valid
+  // nonce (which the server rejects with "nonce already claimed"). The
+  // upper 8 bits stay zero so `offset + workerCount * iterations` can't
+  // overflow the on-chain uint64 nonce bound enforced by /api/mine.
+  const baseOffset = randomBaseOffset();
 
   const workers: Worker[] = [];
   const startedAt = performance.now();
@@ -112,7 +118,7 @@ export function startMiner(args: StartMinerArgs): MinerHandle {
       type: "init",
       challenge: args.challenge,
       difficultyBits: args.difficultyBits,
-      startNonce: i.toString(),
+      startNonce: (baseOffset + BigInt(i)).toString(),
       stride: workerCount.toString(),
       reportEveryHashes: reportEvery,
     };
@@ -120,4 +126,22 @@ export function startMiner(args: StartMinerArgs): MinerHandle {
   }
 
   return { promise, stop };
+}
+
+function randomBaseOffset(): bigint {
+  // 56-bit (7-byte) random offset. Avoids the smallest-nonce-always-found
+  // collision while leaving 8 high bits of headroom under the uint64 cap
+  // the API enforces (0xffffffffffffffff).
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const bytes = new Uint8Array(7);
+    crypto.getRandomValues(bytes);
+    let n = 0n;
+    for (const b of bytes) n = (n << 8n) | BigInt(b);
+    return n;
+  }
+  // Fallback: Math.random based. Not cryptographically random but
+  // sufficient for "don't collide with last session's nonce".
+  const hi = Math.floor(Math.random() * 0x1_000_000); // 24 bits
+  const lo = Math.floor(Math.random() * 0x100_000_000); // 32 bits
+  return (BigInt(hi) << 32n) | BigInt(lo);
 }
