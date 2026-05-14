@@ -18,21 +18,21 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://bankr-miner.app",
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://bankr-miner.vercel.app",
   ),
-  title: "BankrMine · CPU-mined, Bankr-native token",
+  title: "BankrMine · CPU-mined ERC-20 on Base",
   description:
-    "Mine $MINE from your browser. CPU-only proof of work. Rewards distributed through the Bankr Wallet API on Base. No GPU, no ASIC, no downloads.",
+    "Mine $MINE from your browser. CPU-only proof of work; mint-on-claim ERC-20 on Base. 90% of supply is locked behind PoW and only minted when you claim on-chain. No GPU, no ASIC, no downloads.",
   openGraph: {
-    title: "BankrMine · CPU-mined, Bankr-native token",
+    title: "BankrMine · CPU-mined ERC-20 on Base",
     description:
-      "Mine $MINE from your browser. CPU-only proof of work. Rewards distributed through the Bankr Wallet API on Base.",
+      "Mine $MINE from your browser. CPU-only proof of work; mint-on-claim ERC-20 on Base. 90% of supply is locked behind PoW and only minted when you claim on-chain.",
     images: [
       {
         url: "/og-image.jpg",
         width: 1200,
         height: 630,
-        alt: "BankrMine — CPU-mineable token on Bankr/Base",
+        alt: "BankrMine — CPU-mineable ERC-20 on Base",
       },
     ],
     type: "website",
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "BankrMine",
     description:
-      "Browser-mined token on Bankr.bot. No GPU. No ASIC. Tweet, mine, mint.",
+      "Browser-mined ERC-20 on Base. No GPU. No ASIC. Mine in your browser, mint on-chain.",
     images: ["/og-image.jpg"],
   },
 };

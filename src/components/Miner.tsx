@@ -8,7 +8,7 @@ import {
   type MinerProgress,
   type MinerHandle,
 } from "@/lib/client/miner";
-import { TOKEN_SYMBOL } from "@/lib/constants";
+import { MIN_CLAIM_AMOUNT, TOKEN_SYMBOL } from "@/lib/constants";
 import { ConnectButton } from "./ConnectButton";
 
 type ChallengeResponse = {
@@ -355,12 +355,12 @@ function StatusLine({
         </div>
         <div className="text-xs text-[color:var(--muted)]">
           {isLive
-            ? "Real transfer dispatched via Bankr Wallet API."
+            ? "Reward delivered on-chain."
             : transferFailed
-              ? "Transfer failed upstream — IOU recorded, operator will retry."
+              ? "On-chain delivery failed upstream — IOU recorded, claim on-chain via the Claim panel."
               : reason === "no-key"
-                ? "Recorded — server has no BANKR_API_KEY, IOU stored for settlement later."
-                : "Queued — settles on chain via Bankr Wallet API the moment $MINE deploys."}
+                ? "Recorded as IOU. Claim on-chain via the Claim panel once you cross the threshold."
+                : `Recorded as IOU. Claim on-chain via the Claim panel once you cross the ${MIN_CLAIM_AMOUNT} ${TOKEN_SYMBOL} threshold.`}
         </div>
         {isLive && status.res.mint.txHash && (
           <div className="text-xs text-[color:var(--muted)] break-all font-mono">

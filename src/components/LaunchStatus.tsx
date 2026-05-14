@@ -12,27 +12,10 @@ type Deployer = {
   upstream: { status: number; ok: boolean; error?: string };
 };
 
-type Launch = {
-  status: string;
-  tokenName: string;
-  tokenSymbol: string;
-  tokenAddress: string;
-  chain: string;
-  txHash: string | null;
-  tweetUrl: string | null;
-  timestamp: number;
-  deployer: {
-    walletAddress: string;
-    xUsername: string | null;
-    xProfileImageUrl: string | null;
-  };
-};
-
 type LaunchStatusPayload = {
   phase: "no-key" | "pre-launch" | "live";
   canDeploy: boolean;
   deployer: Deployer;
-  ecosystem: { count: number; launches: Launch[]; fetchedAt: number };
   queue: {
     totalQueued: number;
     totalSettled: number;
@@ -48,14 +31,6 @@ type LaunchStatusPayload = {
 };
 
 const NUM = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
-
-function relTime(ts: number): string {
-  const delta = (Date.now() - ts) / 1000;
-  if (delta < 60) return `${Math.floor(delta)}s ago`;
-  if (delta < 3600) return `${Math.floor(delta / 60)}m ago`;
-  if (delta < 86_400) return `${Math.floor(delta / 3600)}h ago`;
-  return `${Math.floor(delta / 86_400)}d ago`;
-}
 
 function shortAddr(a: string): string {
   if (!a || a.length < 12) return a || "?";
@@ -175,53 +150,6 @@ export function LaunchStatus({ pollMs = 15_000 }: { pollMs?: number }) {
             </span>
           </span>
         </div>
-      </div>
-
-      <div className="space-y-2">
-        <div className="flex items-baseline justify-between gap-3">
-          <span className="label-kbd">recent bankr launches</span>
-          <span className="text-[10px] text-[color:var(--muted)] font-mono">
-            live · {data.ecosystem.count} shown
-          </span>
-        </div>
-        {data.ecosystem.launches.length === 0 ? (
-          <div className="text-xs text-[color:var(--muted)]">
-            (no recent launches from /token-launches)
-          </div>
-        ) : (
-          <ul className="space-y-1.5">
-            {data.ecosystem.launches.slice(0, 5).map((l) => (
-              <li
-                key={`${l.tokenAddress}-${l.timestamp}`}
-                className="flex items-center justify-between gap-2 text-xs font-mono"
-              >
-                <span className="truncate flex-1">
-                  <a
-                    href={`https://basescan.org/token/${l.tokenAddress}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[color:var(--foreground)] hover:underline"
-                  >
-                    ${l.tokenSymbol}
-                  </a>{" "}
-                  {l.deployer.xUsername && (
-                    <a
-                      href={`https://x.com/${l.deployer.xUsername}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[color:var(--muted)] hover:underline"
-                    >
-                      @{l.deployer.xUsername}
-                    </a>
-                  )}
-                </span>
-                <span className="text-[color:var(--muted)] whitespace-nowrap">
-                  {l.timestamp ? relTime(l.timestamp) : "?"}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
     </div>
   );
