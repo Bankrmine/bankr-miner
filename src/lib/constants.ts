@@ -75,10 +75,14 @@ export const MAX_MINTS_PER_EPOCH_PER_WALLET = 5; // anti-spam guard
 export const MAX_MINTS_PER_EPOCH_PER_IP = 20;
 
 /**
- * Optional small ETH tip per mint that routes to the deployer wallet to
- * self-fund Base gas. Phase 1 demo runs with TIP_ETH=0 (free to mine).
+ * Protocol fee (in ETH) attached as msg.value on every on-chain claim().
+ * The full amount is forwarded by the contract to the configured
+ * `tipReceiver` wallet. Mining itself remains free; the fee is paid only
+ * when a miner finalises an on-chain claim. The live amount is read from
+ * the contract's `minerTipWei()` at claim time, so this constant is
+ * documentation/reference only.
  */
-export const MINER_TIP_ETH = 0;
+export const MINER_TIP_ETH = 0.00022;
 
 /**
  * Bankr wiring (optional). Used for the live token-launches feed shown on

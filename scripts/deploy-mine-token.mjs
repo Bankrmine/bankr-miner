@@ -17,6 +17,8 @@
 //   - TOKEN_SYMBOL         (default: "MINE")
 //   - MAX_SUPPLY           (default: 100000000)  — in whole tokens
 //   - OWNER_ADDRESS        (default: deployer)   — receives admin powers
+//   - MINER_TIP_ETH        (default: 0)          — protocol fee in ETH per claim
+//   - TIP_RECEIVER         (default: OWNER_ADDRESS) — wallet that collects fees
 //   - SIMULATE             ("1" to dry-run via eth_call instead of broadcast)
 //
 // Usage:
@@ -64,6 +66,8 @@ const TOKEN_SYMBOL = env.TOKEN_SYMBOL ?? "MINE";
 const MAX_SUPPLY_WHOLE = BigInt(env.MAX_SUPPLY ?? "100000000");
 const CHAIN_NAME = (env.CHAIN ?? "base").toLowerCase();
 const SIMULATE = env.SIMULATE === "1";
+const MINER_TIP_ETH_STR = env.MINER_TIP_ETH ?? "0";
+const minerTipWei = parseEther(MINER_TIP_ETH_STR);
 
 const chain = pickChain(CHAIN_NAME);
 const rpcUrl = env.RPC_URL ?? chain.rpcUrls.default.http[0];
@@ -84,6 +88,7 @@ const owner = env.OWNER_ADDRESS
   ? getAddress(env.OWNER_ADDRESS)
   : account.address;
 const claimSigner = getAddress(CLAIM_SIGNER);
+const tipReceiver = env.TIP_RECEIVER ? getAddress(env.TIP_RECEIVER) : owner;
 
 console.log(`→ Deploying MineToken to ${chain.name}`);
 console.log(`  RPC:           ${rpcUrl}`);
@@ -92,6 +97,8 @@ console.log(`  Owner:         ${owner}`);
 console.log(`  Claim signer:  ${claimSigner}`);
 console.log(`  Name / symbol: ${TOKEN_NAME} / ${TOKEN_SYMBOL}`);
 console.log(`  Max supply:    ${MAX_SUPPLY_WHOLE.toString()} ${TOKEN_SYMBOL}`);
+console.log(`  Miner tip:     ${MINER_TIP_ETH_STR} ETH per claim (${minerTipWei.toString()} wei)`);
+console.log(`  Tip receiver:  ${tipReceiver}`);
 console.log(`  Simulate only: ${SIMULATE}`);
 
 const balance = await publicClient.getBalance({ address: account.address });
@@ -109,6 +116,8 @@ const constructorArgs = [
   MAX_SUPPLY_WHOLE,
   owner,
   claimSigner,
+  minerTipWei,
+  tipReceiver,
 ];
 
 if (SIMULATE) {

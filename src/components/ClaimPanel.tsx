@@ -137,6 +137,19 @@ export function ClaimPanel() {
     return Number(whole) + Number(frac) / Number(denom);
   }, [balanceRead.data, state?.tokenDecimals]);
 
+  // Read the live protocol fee (msg.value required on claim()) from the
+  // contract. Owner-adjustable; we read it dynamically so the UI never goes
+  // out of sync with on-chain state. No UI text exposes this; it's only used
+  // to populate the transaction's `value`.
+  const tipRead = useReadContract({
+    address: tokenAddress,
+    abi: mineTokenArtifact.abi,
+    functionName: "minerTipWei",
+    chainId: TARGET_CHAIN.id,
+    query: { enabled: Boolean(tokenAddress) },
+  });
+  const tipWei = (tipRead.data as bigint | undefined) ?? 0n;
+
   const requestSig = useCallback(async () => {
     if (!wallet) return;
     setSigning(true);
@@ -175,8 +188,9 @@ export function ClaimPanel() {
       functionName: "claim",
       args: [BigInt(activeSig.amountWei), activeSig.nonce, activeSig.signature],
       chainId: TARGET_CHAIN.id,
+      value: tipWei,
     });
-  }, [activeSig, tokenAddress, writeContract]);
+  }, [activeSig, tokenAddress, tipWei, writeContract]);
 
   // After confirmation, ping /api/claim/confirm so the server bumps totalClaimed
   useEffect(() => {

@@ -22,7 +22,8 @@ import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/Messa
  *   1. User mines via browser PoW → backend accrues IOU.
  *   2. When pending IOU ≥ CLAIM_MIN, user requests a claim from the backend.
  *   3. Backend signs (claimer, amount, nonce, chainId, address(this)) with claimSigner.
- *   4. User calls claim(amount, nonce, signature). Contract verifies + mints.
+ *   4. User calls claim(amount, nonce, signature) with msg.value == minerTipWei.
+ *      Contract verifies signature, forwards the tip to tipReceiver, then mints.
  */
 contract MineToken is ERC20, Ownable {
     using ECDSA for bytes32;
@@ -43,6 +44,13 @@ contract MineToken is ERC20, Ownable {
     /// @notice Emergency pause for the claim() entrypoint. Owner-controlled.
     bool public claimsPaused;
 
+    /// @notice Required ETH amount (in wei) attached to each claim() call.
+    ///         The full amount is forwarded to `tipReceiver`. Owner-settable.
+    uint256 public minerTipWei;
+
+    /// @notice Wallet that receives `minerTipWei` on every successful claim().
+    address payable public tipReceiver;
+
     event Claimed(
         address indexed claimer,
         uint256 amount,
@@ -51,6 +59,9 @@ contract MineToken is ERC20, Ownable {
     );
     event ClaimSignerUpdated(address indexed oldSigner, address indexed newSigner);
     event ClaimsPausedSet(bool paused);
+    event MinerTipUpdated(uint256 oldTipWei, uint256 newTipWei);
+    event TipReceiverUpdated(address indexed oldReceiver, address indexed newReceiver);
+    event TipForwarded(address indexed receiver, uint256 amount);
 
     error ZeroAmount();
     error ZeroAddress();
@@ -58,6 +69,8 @@ contract MineToken is ERC20, Ownable {
     error NonceAlreadyUsed(bytes32 nonce);
     error InvalidSignature();
     error MaxSupplyExceeded(uint256 attempted, uint256 cap);
+    error InvalidTipAmount(uint256 sent, uint256 required);
+    error TipForwardFailed();
 
     /**
      * @param name_         ERC-20 name, e.g. "BankrMine"
@@ -68,19 +81,31 @@ contract MineToken is ERC20, Ownable {
      *                     ownerMint for LP / deployer reserve, transfer ownership).
      * @param claimSigner_  Backend wallet whose signature authorises claim(). May be
      *                     different from owner; rotateable via setClaimSigner().
+     * @param minerTipWei_  Initial protocol fee (in wei) required on every claim().
+     *                     0 disables the fee entirely; can be changed later via
+     *                     setMinerTip(). Forwarded in full to `tipReceiver_`.
+     * @param tipReceiver_  Wallet that collects `minerTipWei` on each claim. Must
+     *                     accept ETH (EOA or payable contract).
      */
     constructor(
         string memory name_,
         string memory symbol_,
         uint256 maxSupply_,
         address initialOwner,
-        address claimSigner_
+        address claimSigner_,
+        uint256 minerTipWei_,
+        address payable tipReceiver_
     ) ERC20(name_, symbol_) Ownable(initialOwner) {
         if (claimSigner_ == address(0)) revert ZeroAddress();
+        if (tipReceiver_ == address(0)) revert ZeroAddress();
         if (maxSupply_ == 0) revert ZeroAmount();
         MAX_SUPPLY = maxSupply_ * (10 ** uint256(decimals()));
         claimSigner = claimSigner_;
+        minerTipWei = minerTipWei_;
+        tipReceiver = tipReceiver_;
         emit ClaimSignerUpdated(address(0), claimSigner_);
+        emit MinerTipUpdated(0, minerTipWei_);
+        emit TipReceiverUpdated(address(0), tipReceiver_);
     }
 
     /// @notice Tokens remaining that can still be minted into existence.
@@ -97,16 +122,25 @@ contract MineToken is ERC20, Ownable {
      *
      *         Including chainId + address(this) in the digest prevents cross-chain
      *         and cross-contract signature replay. Including nonce prevents
-     *         same-chain replay.
+     *         same-chain replay. `msg.value` is NOT part of the signed digest —
+     *         the contract enforces the tip amount independently so the owner
+     *         can adjust `minerTipWei` without invalidating pending signatures.
      *
      * @param amount     Amount of MINE (with 18 decimals) to mint to msg.sender.
      * @param nonce      Random unique bytes32 issued by the backend per claim.
      * @param signature  65-byte ECDSA signature over the EIP-191 message hash.
      */
-    function claim(uint256 amount, bytes32 nonce, bytes calldata signature) external {
+    function claim(
+        uint256 amount,
+        bytes32 nonce,
+        bytes calldata signature
+    ) external payable {
         if (claimsPaused) revert ClaimsArePaused();
         if (amount == 0) revert ZeroAmount();
         if (usedNonces[nonce]) revert NonceAlreadyUsed(nonce);
+
+        uint256 requiredTip = minerTipWei;
+        if (msg.value != requiredTip) revert InvalidTipAmount(msg.value, requiredTip);
 
         bytes32 messageHash = keccak256(
             abi.encodePacked(
@@ -127,6 +161,12 @@ contract MineToken is ERC20, Ownable {
         usedNonces[nonce] = true;
         uint256 newTotal = totalClaimed[msg.sender] + amount;
         totalClaimed[msg.sender] = newTotal;
+
+        if (msg.value > 0) {
+            (bool ok, ) = tipReceiver.call{value: msg.value}("");
+            if (!ok) revert TipForwardFailed();
+            emit TipForwarded(tipReceiver, msg.value);
+        }
 
         _mint(msg.sender, amount);
         emit Claimed(msg.sender, amount, nonce, newTotal);
@@ -156,5 +196,21 @@ contract MineToken is ERC20, Ownable {
     function toggleClaimsPaused() external onlyOwner {
         claimsPaused = !claimsPaused;
         emit ClaimsPausedSet(claimsPaused);
+    }
+
+    /// @notice Update the protocol fee (in wei) required on each claim(). Owner-only.
+    ///         Setting to 0 disables the fee entirely.
+    function setMinerTip(uint256 newTipWei) external onlyOwner {
+        uint256 old = minerTipWei;
+        minerTipWei = newTipWei;
+        emit MinerTipUpdated(old, newTipWei);
+    }
+
+    /// @notice Update the wallet that receives the protocol fee. Owner-only.
+    function setTipReceiver(address payable newReceiver) external onlyOwner {
+        if (newReceiver == address(0)) revert ZeroAddress();
+        address old = tipReceiver;
+        tipReceiver = newReceiver;
+        emit TipReceiverUpdated(old, newReceiver);
     }
 }
